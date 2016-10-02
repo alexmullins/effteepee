@@ -1,2 +1,3 @@
 # username::sha256 password hash::root folder 
 alexmullins::f25215f303abd8dae2632b2ccbaa6f4ee8f1daac94b2faa22ad60efca3f880fd::/tmp/alex/
+alex::4135aa9dc1b842a653dea846903ddb95bfb8c5a10c504a7fa16e10bc31d1fdf0::/tmp/hello
