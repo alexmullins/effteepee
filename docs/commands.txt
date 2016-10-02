@@ -1,0 +1,29 @@
+Standard usage:
+
+$ effteepee ip:port
+
+Please authenticate.
+Username: alexmullins
+Password: ************ (email@example.com)
+
+Welcome alexmullins!
+Type help to get help info.
+
+Command: help
+
+Supported Commands
+name - description
+
+cd - Change directory on the server.
+ls - Display files and folders in the current directory.
+dir - Display files and folders in the current directory.
+get - Download a file from the server.
+put - Upload a file to the server.
+mget - Download multiple files from the server.
+mput - Upload multiple files to the server.
+binary - Set the file transfer mode to binary (default).  
+quit - Quit the program.
+compress - Set compression on the file transfers.
+encrypt - Set encryption on the file transfers. 
+normal - Reset to no encryption or compression on file transfers. 
+
