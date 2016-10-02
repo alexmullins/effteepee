@@ -65,10 +65,14 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
     """
 
     def handle(self):
-        data = self.request.recv(1024).strip()
-        print("{}:{} wrote:".format(self.client_address[0], self.client_address[1]))
-        print(data)
-        self.request.sendall(data.upper())
+        while True:
+            data = self.request.recv(1024).strip()
+            if not data:
+                print("connection closed")
+                return
+            print("{}:{} wrote:".format(self.client_address[0], self.client_address[1]))
+            print(data)
+            self.request.sendall(data.upper())
 
 
 def main():
@@ -76,7 +80,13 @@ def main():
     server = EffTeePeeServer(hostport, EffTeePeeHandler)
     ip, port = server.server_address
     print("started EffTeePee server on {}:{}".format(ip, port))
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("Shutting down.")
+        server.shutdown()
+        server.server_close()
+
 
 if __name__ == '__main__':
     import sys
