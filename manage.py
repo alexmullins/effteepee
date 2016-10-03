@@ -2,7 +2,7 @@ import sys
 import pathlib
 import hashlib
 
-DEFAULT_USER_FILE = str(pathlib.Path(".", "data", "userfile.txt"))
+from common import *
 
 def main():
     if len(sys.argv) != 2:

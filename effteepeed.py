@@ -2,10 +2,10 @@
 
 import socketserver
 import hashlib
-import pathlib 
 import pprint
 
-DEFAULT_USER_FILE = str(pathlib.Path('.', 'data', 'userfile.txt'))
+from common import *
+
 DEBUG = True
 
 def debug_print(msg):
@@ -23,7 +23,13 @@ class EffTeePeeServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, hostport, handler, user_file=DEFAULT_USER_FILE):
         super().__init__(hostport, handler)
+        
+        # declare instance variables
         self.users = dict()
+        self.ascii = False 
+        self.compression = False 
+        self.encryption = False
+
         self.parse_user_file(user_file)
         debug_print("Users file: {}".format(pprint.pformat(self.users)))
     
@@ -59,7 +65,7 @@ class EffTeePeeServer(socketserver.ThreadingTCPServer):
         return (False, "")    
 
 
-class EffTeePeeHandler(socketserver.BaseRequestHandler):
+class EffTeePeeHandler(socketserver.StreamRequestHandler):
     """
     Each connection will create a new EffTeePeeHandler. 
     """
@@ -71,8 +77,12 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
                 print("connection closed")
                 return
             print("{}:{} wrote:".format(self.client_address[0], self.client_address[1]))
+            data = data.decode("utf-8")
             print(data)
-            self.request.sendall(data.upper())
+            print(type(data))
+            print(type("hello"))
+            print(dir(self.rfile))
+            self.request.sendall(bytes(data.upper(), "utf-8"))
 
 
 def main():

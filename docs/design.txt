@@ -17,49 +17,54 @@ Connection creation and handshake flow:
 -----------------------------------------
 Client will send a ClientHello message to the server.
 The Server will authenticate the user and password from the 
-ClientHello message. If authentication fails close the connection.
+ClientHello message. If authentication fails the server will
+send a ErrorResponse and close the connection.
 If authentcation suceeds then the Server will send a ServerHello
 message. Once the Client receives the ServerHello message it can 
 proceed to send a command to the server. If the server encounters
-an error processing a command it will return an ErrorResponse message.
+an error processing a command it will return an ErrorResponse message
+but WILL NOT close the connection.
 
 
 Message Formats:
 ------------------
+All length values are encoded/decoded to bytes in Big Endian order.
+
 ClientHello:
-<1 byte> - 0x01
+<1 byte> - <ID>
 <1 byte> - <username len>
 <1 byte> - <password len>
 <variable> - <username>
 <variable> - <password>
 
 ServerHello:
-<1 byte> - 0x02
-<1 byte> - <transfer mode value>    # see below for modes
-<1 byte> - <compression mode value>
-<1 byte> - <encryption mode value>
+<1 byte> - <ID>
+<1 byte> - <transfer setting value>    # see below for modes
+<1 byte> - <compression setting value>
+<1 byte> - <encryption setting value>
 
 CDRequest: 
-<1 byte> - 0x03
+<1 byte> - <ID>
 <1 byte> - <directory name len>
 <variable> - <directory name>
 
 CDResponse:
-<1 byte> - 0x04
-<2 byte> - 0x6f6b
+<1 byte> - <ID>
+<1 byte> - <directory name len>
+<variable> - <directory name>
 
 LSRequest:
-<1 byte> - 0x05
+<1 byte> - <ID>
 
 LSResponse:
-<1 byte> - 0x06
+<1 byte> - <ID>
 <4 byte> - <folders len>    
 <4 byte> - <files len>
 <variable> - <folders>  # semicolon (;) separated string
 <variable> - <files>    # semicolon (;) separated string
 
 GetRequest:
-<1 byte> - 0x07
+<1 byte> - <ID>
 <1 byte> - <number of filenames>    # if 0x00 then means glob string for filename
 <1 byte> - <1st filename len>
 <variable - <1st filename>
@@ -68,61 +73,105 @@ GetRequest:
 <variable> <nth filename>
 
 GetResponse:
-<1 byte> - 0x08
+<1 byte> - <ID>
 <4 byte> - <number of files>
+<object> - <File 1>
+... repeat ... 
+<object> - <File n>
+<object> - <EndOfFiles>
+
+EndOfFiles:
+<1 byte> - <ID>
+
+File:
+<1 byte> - <ID>
 <1 byte> - <1st filename len>
 <variable> - <1st filename>
-<8 byte> - <1st file length>
-<variable> - <1st file>
+<object> - <FileChunk 1>
 ... repeat ...
-<1 byte> - <nth filename len>
-<variable> - <nth filename>
-<8 byte> - <nth file length>
-<variable> - <nth file>
+<object> - <FileChunk n>
+<object> - <EndOfFileChunks>
+
+FileChunk:
+<1 byte> - <ID>
+<4 byte> - <file chunk length>
+<variable> - <file chunk data>
+
+EndOfFileChunks:
+<1 byte> - <ID>
 
 PutRequest:
-<1 byte> - 0x09
+<1 byte> - <ID>
 <4 byte> - <number of files>
-<1 byte> - <1st filename len>
-<variable> - <1st filename>
-<8 byte> - <1st file len>
-<variable> - <1st file>
+<variable> - <File 1>
 ... repeat ...
-<1 byte> - <nth filename len>
-<variable> - <nth filename>
-<8 byte> - <nth file len>
-<variable> - <nth file>
+<variable> - <File n>
+<1 byte> - <End of Files>
 
 PutResponse:
-<1 byte> - 0x0A
+<1 byte> - <ID>
 
 QuitRequest:
-<1 byte> - 0x0B
+<1 byte> - <ID>
 
 QuitResponse:
-<1 byte> - 0x0C
+<1 byte> - <ID>
 
 ErrorResponse:
-<1 byte> - 0x0D
+<1 byte> - <ID>
 <1 byte> - <error value>
 
-# Mode - Name - (value - description), (value - description)
-# 0x01 - Transfer - (0x00 - Binary), (0x01 - ASCII)
+# Setting - Name - (value - description), (value - description)
+# 0x01 - ASCII - (0x00 - Off), (0x01 - On)
 # 0x02 - Compression (0x00 - Off), (0x01 - On)
 # 0x03 - Encryption (0x00 - Off), (0x01 - On)
-ChangeModeRequest:
-<1 byte> - 0x0E
-<1 byte> - <mode> 
+ChangeSettingRequest:
+<1 byte> - <ID>
+<1 byte> - <setting> 
 <1 byte> - <value>
+<2 byte> - <extra len>
+<variable> - <extra data>
 
-ChangeModeResponse:
+ChangeSettingResponse:
 <1 byte> - 0x0F
-<1 byte> - <mode>
+<1 byte> - <setting>
 <1 byte> - <value>
+<2 byte> - <extra len>
+<variable> - <extra data>
 
 
 User file:
 ------------
-# username::sha256 password hash::root folder 
+# username::sha256(password)::root folder 
 alexmullins::f25215f303abd8dae2632b2ccbaa6f4ee8f1daac94b2faa22ad60efca3f880fd::/tmp/alex/
 
+
+Compression and Encryption Process:
+----------------------------------------------------
+The server will send the initial settings values 
+in the ServerHello response. After that, sending and 
+receiving of FILE data will correspond to the encrypted 
+and compressed values agreed upon. The client can toggle 
+these settings with the encrypt and compress commands or 
+use the normal command to turn them both off. The pipeline
+process is:
+
+Data --> Encrypted(k) --> Compressed --> Sent --> Received --> Decompressed --> Decrypted(k) --> Data
+
+Compression/Decompression will use Python's LZMA library. 
+
+Encryption/Decryption will use a simple Vigenère cipher 
+with a 128-bit random key. Diffie-Hellman will be used to 
+generate the shared random key. When the client sends a
+ChangeSettingRequest with the <setting> set to 'encryption'
+and <value> is set 'On' the client will also send along its
+public key in the <extra data> field. The client generates its 
+public key based on a common generator and modulus. This way 
+the client can generate a new shared secret by justing resending 
+a ChangeSettingRequest. The server will generate its public key 
+and send it back to the client in the <extra data> field of the 
+ChangeSettingResponse. Once both sides have the other's public 
+key the shared secret can be generated.
+
+Vigenère cipher algorithms found at:
+http://stackoverflow.com/questions/2490334/simple-way-to-encode-a-string-according-to-a-password
