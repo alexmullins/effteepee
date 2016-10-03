@@ -26,9 +26,6 @@ class EffTeePeeServer(socketserver.ThreadingTCPServer):
         
         # declare instance variables
         self.users = dict()
-        self.ascii = False 
-        self.compression = False 
-        self.encryption = False
 
         self.parse_user_file(user_file)
         debug_print("Users file: {}".format(pprint.pformat(self.users)))
@@ -65,24 +62,37 @@ class EffTeePeeServer(socketserver.ThreadingTCPServer):
         return (False, "")    
 
 
-class EffTeePeeHandler(socketserver.StreamRequestHandler):
+class EffTeePeeHandler(socketserver.BaseRequestHandler):
     """
     Each connection will create a new EffTeePeeHandler. 
     """
-
     def handle(self):
-        while True:
-            data = self.request.recv(1024).strip()
-            if not data:
-                print("connection closed")
-                return
-            print("{}:{} wrote:".format(self.client_address[0], self.client_address[1]))
-            data = data.decode("utf-8")
-            print(data)
-            print(type(data))
-            print(type("hello"))
-            print(dir(self.rfile))
-            self.request.sendall(bytes(data.upper(), "utf-8"))
+        self.binary = True 
+        self.compression = False 
+        self.encryption = False
+        self.username = None
+        self.root_directory = None
+        
+        ok = self._handshake()
+        if not ok:
+            self.request.close()
+            return
+        print("Authenticated a user.")
+    
+    def _handshake(self):
+        ok, res = parse_client_hello(self.request)
+        if not ok:
+            return False
+        ok, directory = self.server.auth_user(res["username"], res["password"])
+        if not ok:
+            return False 
+        self.username = res["username"]
+        self.root_directory = directory
+
+        data = create_server_hello(self.binary, self.compression, self.encryption)
+        self.request.sendall(data)
+        return True
+
 
 
 def main():

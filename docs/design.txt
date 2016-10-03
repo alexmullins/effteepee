@@ -39,7 +39,7 @@ ClientHello:
 
 ServerHello:
 <1 byte> - <ID>
-<1 byte> - <transfer setting value>    # see below for modes
+<1 byte> - <binary transport setting value>    # see below for modes
 <1 byte> - <compression setting value>
 <1 byte> - <encryption setting value>
 
@@ -85,8 +85,8 @@ EndOfFiles:
 
 File:
 <1 byte> - <ID>
-<1 byte> - <1st filename len>
-<variable> - <1st filename>
+<1 byte> - <filename len>
+<variable> - <filename>
 <object> - <FileChunk 1>
 ... repeat ...
 <object> - <FileChunk n>
@@ -122,7 +122,7 @@ ErrorResponse:
 <1 byte> - <error value>
 
 # Setting - Name - (value - description), (value - description)
-# 0x01 - ASCII - (0x00 - Off), (0x01 - On)
+# 0x01 - Binary - (0x00 - Off), (0x01 - On) 
 # 0x02 - Compression (0x00 - Off), (0x01 - On)
 # 0x03 - Encryption (0x00 - Off), (0x01 - On)
 ChangeSettingRequest:
@@ -133,7 +133,7 @@ ChangeSettingRequest:
 <variable> - <extra data>
 
 ChangeSettingResponse:
-<1 byte> - 0x0F
+<1 byte> - <ID>
 <1 byte> - <setting>
 <1 byte> - <value>
 <2 byte> - <extra len>
