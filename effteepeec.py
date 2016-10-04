@@ -32,6 +32,10 @@ class EffTeePeeClient():
         """
         msg = create_client_hello(username,password)
         self.socket.sendall(msg)
+        rid = recvid(self.socket)
+        if not rid or rid != MsgType.ServerHello:
+            self.socket.close()
+            return False  
         ok, res = parse_server_hello(self.socket)
         if not ok:
             self.socket.close()
@@ -97,7 +101,13 @@ class EffTeePeeClient():
         Sends a quit request to the server for proper cleanup. 
         Returns True if everything went ok.
         """
-        pass 
+        msg = create_quit_request()
+        self.socket.sendall(msg)
+
+        rid = recvid(self.socket)
+        if not rid or rid != MsgType.QuitResponse:
+            print("Did not receive quit response from server")
+        self.socket.close()
     
     def toggle_binary(self):
         """
@@ -123,8 +133,6 @@ class EffTeePeeClient():
         """
         pass
 
-    
-        
 
 def main():
     client = EffTeePeeClient()
@@ -140,22 +148,10 @@ def main():
     if not authed:
         print("Could not auth.")
         return 1
-    
     print("authed as {}".format(client.username))
 
-    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-    #     sock.connect((host, port))
-    #     while True:
-    #         data = input("Say: ")
-    #         if not data:
-    #             continue
-    #         sock.sendall(bytes(data + "\n", "utf-8"))
+    client.quit()
 
-    #         received = str(sock.recv(1024), "utf-8")
-
-    #         if not received:
-    #             break
-    #         print("Received: {}".format(received))
 
 if __name__ == '__main__':
     import sys

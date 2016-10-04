@@ -6,11 +6,6 @@ import pprint
 
 from common import *
 
-DEBUG = True
-
-def debug_print(msg):
-    if DEBUG:
-        print(msg)
 
 class EffTeePeeServer(socketserver.ThreadingTCPServer):
     """
@@ -28,7 +23,6 @@ class EffTeePeeServer(socketserver.ThreadingTCPServer):
         self.users = dict()
 
         self.parse_user_file(user_file)
-        debug_print("Users file: {}".format(pprint.pformat(self.users)))
     
     def parse_user_file(self, user_file):
         with open(user_file) as f:
@@ -66,40 +60,100 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
     """
     Each connection will create a new EffTeePeeHandler. 
     """
-    def handle(self):
+    def setup(self):
+        # connection variables
         self.binary = True 
         self.compression = False 
         self.encryption = False
         self.username = None
         self.root_directory = None
-        
+        self.quit = False
+
+        self.handlers = dict()
+        # self.handlers[MsgType.CDRequest] = self._handle_cd
+        # self.handlers[MsgType.LSRequest] = self._handle_ls
+        # self.handlers[MsgType.GetRequest] = self._handle_get
+        # self.handlers[MsgType.PutRequest] = self._handle_put
+        self.handlers[MsgType.QuitRequest] = self._handle_quit
+        # self.handlers[MsgType.ChangeSettingsRequest] = self._handle_change_setting
+
+    def handle(self): 
+        # Handshake 
         ok = self._handshake()
         if not ok:
-            self.request.close()
+            self.close()
             return
-        print("Authenticated a user.")
+        
+        self._handle_commands()
+        if not self.quit:
+            self.close()
+        return
+
+    def send_error_response(self, code):
+        er = create_error_response(code)
+        self.request.sendall(er)
+        return
+    
+    def close(self):
+        """
+        Will centralize our connection close handling. 
+        Close the connection and set quit to True
+        so our _handle_commands will stop processing.
+        """
+        self.request.close()
+        self.quit = True 
+        return
+
+    def _handle_quit(self):
+        msg = create_quit_response()
+        self.request.sendall(msg)
+        self.close()
+        return 
+
+    def _handle_commands(self):
+        # enter into a for loop and try
+        # to read the request id and send it the
+        # appropriate handler.
+        while not self.quit:
+            rid = recvid(self.request)
+            if not rid:
+                return False
+            handler = self.handlers[rid]
+            handler()
     
     def _handshake(self):
+        # check to make sure we got a ClientHello
+        rid = recvid(self.request)
+        if not rid or rid != MsgType.ClientHello:
+            print("failed to receive ClientHello: {}".format(rid))
+            return False
+        
         ok, res = parse_client_hello(self.request)
         if not ok:
             return False
-        ok, directory = self.server.auth_user(res["username"], res["password"])
+        # check authentication
+        username = res["username"]
+        password = res["password"]
+        ok, directory = self.server.auth_user(username, password)
         if not ok:
-            return False 
-        self.username = res["username"]
-        self.root_directory = directory
+            self.send_error_response(ErrorCodes.FailedAuthentication)
+            print("{} failed to authenticate.".format(username))
+            return False
 
+        print("{} authenticated.".format(username))
+        self.username = username
+        self.root_directory = directory
+        # send back ServerHello
         data = create_server_hello(self.binary, self.compression, self.encryption)
         self.request.sendall(data)
         return True
-
 
 
 def main():
     hostport = ("localhost", 8080)
     server = EffTeePeeServer(hostport, EffTeePeeHandler)
     ip, port = server.server_address
-    print("started EffTeePee server on {}:{}".format(ip, port))
+    print("Started EffTeePee server on {}:{}".format(ip, port))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
