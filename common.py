@@ -104,7 +104,7 @@ def parse_error_response(socket):
         return (False, None)
     d = dict()
     d["id"] = MsgType.ErrorResponse
-    d["code"] = buf[0]
+    d["code"] = ErrorCodes(buf[0])
     return (True, d)
 
 def parse_server_hello(socket):

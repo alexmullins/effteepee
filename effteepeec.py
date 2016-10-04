@@ -15,6 +15,17 @@ class EffTeePeeClient():
         self.encryption = False 
         self.socket = None
         self.encrypt_key = None
+        self.error = None
+        self.closed = False
+
+    def close(self):
+        """
+        Will centralize our connection close handling. 
+        Close the connection and set closed to True.
+        """
+        self.closed = True
+        self.socket.close()
+        return
     
     def connect(self, host, port):
         """
@@ -34,11 +45,15 @@ class EffTeePeeClient():
         self.socket.sendall(msg)
         rid = recvid(self.socket)
         if not rid or rid != MsgType.ServerHello:
-            self.socket.close()
+            if rid == MsgType.ErrorResponse:
+                ok, msg = parse_error_response(self.socket)
+                if ok:
+                    self.error = msg["code"]
+            self.close()
             return False  
         ok, res = parse_server_hello(self.socket)
         if not ok:
-            self.socket.close()
+            self.close()
             return False
         self.username = username 
         self.binary = res["binary"]
@@ -147,6 +162,7 @@ def main():
     authed = client.handshake(username, password)
     if not authed:
         print("Could not auth.")
+        print(client.error)
         return 1
     print("authed as {}".format(client.username))
 

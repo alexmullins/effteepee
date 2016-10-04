@@ -2,7 +2,7 @@
 
 import socketserver
 import hashlib
-import pprint
+
 
 from common import *
 
@@ -85,9 +85,6 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
             return
         
         self._handle_commands()
-        if not self.quit:
-            self.close()
-        return
 
     def send_error_response(self, code):
         er = create_error_response(code)
@@ -117,7 +114,9 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         while not self.quit:
             rid = recvid(self.request)
             if not rid:
-                return False
+                self.close()
+            if rid not in self.handlers:
+                print("Unknown handler: {}".format(rid))
             handler = self.handlers[rid]
             handler()
     
