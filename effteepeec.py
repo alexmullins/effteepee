@@ -1,7 +1,10 @@
 # EffTeePee Client
 
-import socket 
+import socket
+import sys
+
 from common import *
+
 
 class EffTeePeeClient():
     def __init__(self):
@@ -17,8 +20,21 @@ class EffTeePeeClient():
         self.encrypt_key = None
         self.error = None
         self.closed = False
+        return
+    
+    def get_error(self):
+        """
+        Returns the last error from the server and consumes it 
+        returning None in the future until another error occurs.
+        If no error is present returns None.
+        """
+        if self.error:
+            err = self.error
+            self.error = None
+            return err
+        return None
 
-    def close(self):
+    def _close(self):
         """
         Will centralize our connection close handling. 
         Close the connection and set closed to True.
@@ -35,31 +51,27 @@ class EffTeePeeClient():
         # create socket
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host, port))
+        return
 
     def handshake(self, username, password):
         """
         Will try and authenticate with the server. Return True if successful 
         or False otherwise and the server will close the connection.
         """
-        msg = create_client_hello(username,password)
-        self.socket.sendall(msg)
-        rid = recvid(self.socket)
-        if not rid or rid != MsgType.ServerHello:
-            if rid == MsgType.ErrorResponse:
-                ok, msg = parse_error_response(self.socket)
-                if ok:
-                    self.error = msg["code"]
-            self.close()
-            return False  
-        ok, res = parse_server_hello(self.socket)
-        if not ok:
-            self.close()
+        msg = create_client_hello_msg(username,password)
+        sendmsg(self.socket, msg["id"], msg)
+        (rid, msg) = recvmsg(self.socket)
+        if rid == MsgType.ErrorResponse:
+            self.error = msg["code"]
+            self._close()
             return False
-        self.username = username 
-        self.binary = res["binary"]
-        self.compression = res["compression"]
-        self.encryption = res["encryption"]
-        return True
+        if rid == MsgType.ServerHello:
+            self.username = username 
+            self.binary = msg["binary"]
+            self.compression = msg["compression"]
+            self.encryption = msg["encryption"]
+            return True
+        return False
     
     def cd(self, directory):
         """
@@ -114,15 +126,13 @@ class EffTeePeeClient():
     def quit(self):
         """
         Sends a quit request to the server for proper cleanup. 
-        Returns True if everything went ok.
         """
-        msg = create_quit_request()
-        self.socket.sendall(msg)
-
-        rid = recvid(self.socket)
-        if not rid or rid != MsgType.QuitResponse:
+        msg = create_quit_request_msg()
+        sendmsg(self.socket, msg["id"], msg)
+        (rid, msg) = recvmsg(self.socket)
+        if rid != MsgType.QuitResponse:
             print("Did not receive quit response from server")
-        self.socket.close()
+        self._close()
     
     def toggle_binary(self):
         """
@@ -150,25 +160,58 @@ class EffTeePeeClient():
 
 
 def main():
+    if len(sys.argv) < 3:
+        print("Missing <ip> <port> to connect to.")
+        return 1
+    ip, port = sys.argv[1], int(sys.argv[2])
+    username = input("Username: ")
+    password = input("Password: ")
+    if len(username) == 0 or len(password) == 0:
+        print("Invalid username and password.")
+        return 1
     client = EffTeePeeClient()
     try:
-        client.connect(host,port)
+        client.connect(ip ,port)
     except OSError as err:
-        print("Error trying to connect.")
+        print("Error trying to connect: " + err)
         return 1
-    
-    username = input("Username:")
-    password = input("Password:")
-    authed = client.handshake(username, password)
-    if not authed:
-        print("Could not auth.")
-        print(client.error)
-        return 1
-    print("authed as {}".format(client.username))
+    try:
+        authed = client.handshake(username, password)
+        if not authed:
+            print("Could not auth: " + str(client.get_error()))
+            return 0
+        print("Welcome {}, type 'help' to get a list of commands.".format(client.username))
+        while not client.closed:
+            command = input("> ")
+            if command == "help":
+                print_help()
+            if command == "quit":
+                client.quit()
+            else:
+                print("Unknown command. Type 'help' to get a list of commands.")
+    except ConnectionClosedException:
+        print("Connection closed.")
+    return
 
-    client.quit()
 
+def print_help():
+    help_str = '''Supported Commands
+name - description
+
+cd - Change directory on the server.
+ls - Display files and folders in the current directory.
+dir - Display files and folders in the current directory.
+get - Download a file from the server.
+put - Upload a file to the server.
+mget - Download multiple files from the server.
+mput - Upload multiple files to the server.
+binary - Set the file transfer mode to binary (default).  
+quit - Quit the program.
+compress - Set compression on the file transfers.
+encrypt - Set encryption on the file transfers. 
+normal - Reset to no encryption or compression on file transfers.
+'''
+    print(help_str)
 
 if __name__ == '__main__':
-    import sys
     sys.exit(int(main() or 0))

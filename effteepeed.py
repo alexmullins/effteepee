@@ -2,10 +2,9 @@
 
 import socketserver
 import hashlib
-
+import sys
 
 from common import *
-
 
 class EffTeePeeServer(socketserver.ThreadingTCPServer):
     """
@@ -18,11 +17,10 @@ class EffTeePeeServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, hostport, handler, user_file=DEFAULT_USER_FILE):
         super().__init__(hostport, handler)
-        
         # declare instance variables
         self.users = dict()
-
         self.parse_user_file(user_file)
+        return
     
     def parse_user_file(self, user_file):
         with open(user_file) as f:
@@ -38,6 +36,7 @@ class EffTeePeeServer(socketserver.ThreadingTCPServer):
                     "pass_hash": pass_hash,
                     "directory": directory
                 }
+        return
     
     def auth_user(self, username, password):
         """
@@ -61,6 +60,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
     Each connection will create a new EffTeePeeHandler. 
     """
     def setup(self):
+        # setup is automatically called by the server when creating a new connection.
         # connection variables
         self.binary = True 
         self.compression = False 
@@ -68,30 +68,48 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self.username = None
         self.root_directory = None
         self.quit = False
-
         self.handlers = dict()
+        self.handlers[MsgType.ClientHello] = self._handshake
         # self.handlers[MsgType.CDRequest] = self._handle_cd
         # self.handlers[MsgType.LSRequest] = self._handle_ls
         # self.handlers[MsgType.GetRequest] = self._handle_get
         # self.handlers[MsgType.PutRequest] = self._handle_put
         self.handlers[MsgType.QuitRequest] = self._handle_quit
         # self.handlers[MsgType.ChangeSettingsRequest] = self._handle_change_setting
+        return
 
-    def handle(self): 
-        # Handshake 
-        ok = self._handshake()
-        if not ok:
-            self.close()
-            return
-        
-        self._handle_commands()
-
-    def send_error_response(self, code):
-        er = create_error_response(code)
-        self.request.sendall(er)
+    def handle(self):
+        """
+        Called by the EffTeePee server when 
+        it accepts a new connection.
+        """
+        try:
+            self._handle_commands()
+        except ConnectionClosedException:
+            print("Connection closed unexpectedly")
+            self._close()
         return
     
-    def close(self):
+    def _handle_commands(self):
+    # enter into a for loop and try
+    # to read the request id and send it the
+    # appropriate handler.
+        while not self.quit:
+            rid, msg = recvmsg(self.request)
+            if rid not in self.handlers:
+                print("Unknown handler: {}".format(rid))
+                self._close()
+            handler = self.handlers[rid]
+            if not self.username and rid != MsgType.ClientHello:
+                # We haven't authenticated and we didn't get a ClientHello
+                # which is a protocol error so abort.
+                print("Client did not try to authenticate")
+                self._close()
+                continue
+            handler(msg)
+        return
+    
+    def _close(self):
         """
         Will centralize our connection close handling. 
         Close the connection and set quit to True
@@ -101,66 +119,48 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self.quit = True 
         return
 
-    def _handle_quit(self):
-        msg = create_quit_response()
-        self.request.sendall(msg)
-        self.close()
-        return 
-
-    def _handle_commands(self):
-        # enter into a for loop and try
-        # to read the request id and send it the
-        # appropriate handler.
-        while not self.quit:
-            rid = recvid(self.request)
-            if not rid:
-                self.close()
-            if rid not in self.handlers:
-                print("Unknown handler: {}".format(rid))
-            handler = self.handlers[rid]
-            handler()
-    
-    def _handshake(self):
+    def _handshake(self, msg):
         # check to make sure we got a ClientHello
-        rid = recvid(self.request)
-        if not rid or rid != MsgType.ClientHello:
-            print("failed to receive ClientHello: {}".format(rid))
-            return False
-        
-        ok, res = parse_client_hello(self.request)
-        if not ok:
-            return False
+        print("Called handshake")
         # check authentication
-        username = res["username"]
-        password = res["password"]
+        username = msg["username"]
+        password = msg["password"]
         ok, directory = self.server.auth_user(username, password)
         if not ok:
-            self.send_error_response(ErrorCodes.FailedAuthentication)
             print("{} failed to authenticate.".format(username))
-            return False
-
+            msg = create_error_response_msg(ErrorCodes.FailedAuthentication)
+            sendmsg(self.request, msg["id"], msg)
+            self._close()
+            return
         print("{} authenticated.".format(username))
         self.username = username
         self.root_directory = directory
         # send back ServerHello
-        data = create_server_hello(self.binary, self.compression, self.encryption)
-        self.request.sendall(data)
-        return True
+        msg = create_server_hello_msg(self.binary, self.compression, self.encryption)
+        sendmsg(self.request, msg["id"], msg)
+        return
 
+    def _handle_quit(self, msg):
+        msg = create_quit_response_msg()
+        sendmsg(self.request, msg["id"], msg)
+        self._close()
+        print("{} has quit.".format(self.username))
+        return 
 
 def main():
-    hostport = ("localhost", 8080)
-    server = EffTeePeeServer(hostport, EffTeePeeHandler)
-    ip, port = server.server_address
-    print("Started EffTeePee server on {}:{}".format(ip, port))
+    if len(sys.argv) < 3:
+        print("Missing <ip> <port> to listen on.")
+        return 1
+    ip, port = sys.argv[1], int(sys.argv[2])
+    server = EffTeePeeServer((ip, port), EffTeePeeHandler)
+    print("Starting EffTeePee server on {}:{}".format(ip, port))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("Shutting down.")
+        print("Shutting down EffTeePee server.")
         server.shutdown()
         server.server_close()
-
+    return
 
 if __name__ == '__main__':
-    import sys
     sys.exit(int(main() or 0))

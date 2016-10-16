@@ -32,6 +32,7 @@ All length values are encoded/decoded to bytes in Big Endian order.
 
 ClientHello:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <1 byte> - <username len>
 <1 byte> - <password len>
 <variable> - <username>
@@ -39,25 +40,30 @@ ClientHello:
 
 ServerHello:
 <1 byte> - <ID>
-<1 byte> - <binary transport setting value>    # see below for modes
+<2 byte> - <MsgLen>
+<1 byte> - <binary transport setting value>    # see below for settings
 <1 byte> - <compression setting value>
 <1 byte> - <encryption setting value>
 
 CDRequest: 
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <1 byte> - <directory name len>
 <variable> - <directory name>
 
 CDResponse:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <1 byte> - <directory name len>
 <variable> - <directory name>
 
 LSRequest:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 
 LSResponse:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <4 byte> - <folders len>    
 <4 byte> - <files len>
 <variable> - <folders>  # semicolon (;) separated string
@@ -65,6 +71,7 @@ LSResponse:
 
 GetRequest:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <1 byte> - <number of filenames>    # if 0x00 then means glob string for filename
 <1 byte> - <1st filename len>
 <variable - <1st filename>
@@ -74,6 +81,7 @@ GetRequest:
 
 GetResponse:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <4 byte> - <number of files>
 <object> - <File 1>
 ... repeat ... 
@@ -82,9 +90,11 @@ GetResponse:
 
 EndOfFiles:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 
 File:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <1 byte> - <filename len>
 <variable> - <filename>
 <object> - <FileChunk 1>
@@ -94,14 +104,17 @@ File:
 
 FileChunk:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <4 byte> - <file chunk length>
 <variable> - <file chunk data>
 
 EndOfFileChunks:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 
 PutRequest:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <4 byte> - <number of files>
 <variable> - <File 1>
 ... repeat ...
@@ -110,15 +123,19 @@ PutRequest:
 
 PutResponse:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 
 QuitRequest:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 
 QuitResponse:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 
 ErrorResponse:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <1 byte> - <error value>
 
 # Setting - Name - (value - description), (value - description)
@@ -127,6 +144,7 @@ ErrorResponse:
 # 0x03 - Encryption (0x00 - Off), (0x01 - On)
 ChangeSettingRequest:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <1 byte> - <setting> 
 <1 byte> - <value>
 <2 byte> - <extra len>
@@ -134,6 +152,7 @@ ChangeSettingRequest:
 
 ChangeSettingResponse:
 <1 byte> - <ID>
+<2 byte> - <MsgLen>
 <1 byte> - <setting>
 <1 byte> - <value>
 <2 byte> - <extra len>
@@ -167,7 +186,7 @@ ChangeSettingRequest with the <setting> set to 'encryption'
 and <value> is set 'On' the client will also send along its
 public key in the <extra data> field. The client generates its 
 public key based on a common generator and modulus. This way 
-the client can generate a new shared secret by justing resending 
+the client can generate a new shared secret by just resending 
 a ChangeSettingRequest. The server will generate its public key 
 and send it back to the client in the <extra data> field of the 
 ChangeSettingResponse. Once both sides have the other's public 
