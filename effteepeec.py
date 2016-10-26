@@ -78,6 +78,7 @@ class EffTeePeeClient():
         Change directory on the server. Return True if everything 
         went ok.
         """
+        print(directory, "cd")
         pass 
     
     def ls(self):
@@ -89,12 +90,14 @@ class EffTeePeeClient():
             "files": [...]
         }
         """
+        print("ls")
         pass 
     
     def dir(self):
         """
         Calls self.ls()
         """
+        print("dir")
         return self.ls() 
     
     def get(self, file_name):
@@ -102,6 +105,7 @@ class EffTeePeeClient():
         Get a file from a directory on the server and save it to
         the local host machine. 
         """
+        print(file_name, "get")
         pass 
     
     def put(self, file_name):
@@ -109,18 +113,21 @@ class EffTeePeeClient():
         Put a file from the local host machine on the server in its 
         current working directory. 
         """
+        print(file_name, "put")
         pass 
     
     def mget(self, file_names):
         """
         Same as put but for multiple files.
         """
+        print(file_names, "mget")
         pass 
     
     def mput(self, file_names):
         """
         Same as get but for multiple files.
         """
+        print(file_names, "mput")
         pass 
     
     def quit(self):
@@ -138,42 +145,47 @@ class EffTeePeeClient():
         """
         Toggle binary mode on the connection. Doesn't do anything at the moment.
         """
+        print("binary")
         pass 
     
     def toggle_compression(self):
         """
         Toggle compression on the connection.
         """
+        print("compression")
         pass 
     
     def toggle_encryption(self):
         """
         Toggle encryption on the connection.
         """
+        print("encryption")
         pass 
     
     def normal(self):
         """
         Resets the compression and encryption to Off.
         """
+        print("normal")
         pass
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("Missing <ip> <port> to connect to.")
-        return 1
-    ip, port = sys.argv[1], int(sys.argv[2])
-    username = input("Username: ")
-    password = input("Password: ")
-    if len(username) == 0 or len(password) == 0:
-        print("Invalid username and password.")
-        return 1
+    #if len(sys.argv) < 3:
+        #print("Missing <ip> <port> to connect to.")
+        #return 1
+    #ip, port = sys.argv[1], int(sys.argv[2])
+    ip, port = input("Ip: "), 12345
     client = EffTeePeeClient()
     try:
         client.connect(ip ,port)
     except OSError as err:
         print("Error trying to connect: " + err)
+        return 1
+    username = input("Username: ")
+    password = input("Password: ")
+    if len(username) == 0 or len(password) == 0:
+        print("Invalid username and password.")
         return 1
     try:
         authed = client.handshake(username, password)
@@ -183,9 +195,44 @@ def main():
         print("Welcome {}, type 'help' to get a list of commands.".format(client.username))
         while not client.closed:
             command = input("> ")
-            if command == "help":
+            if command == 'help':
                 print_help()
-            if command == "quit":
+            elif command == 'cd':
+                directory = input("Enter name of new directory: ")
+                client.cd(directory)
+            elif command == 'ls':
+                client.ls()
+            elif command == 'dir':
+                client.dir()
+            elif command == 'get':
+                name = input("Enter name of file to get: ")
+                client.get(name)
+            elif command == 'put':
+                name = input("Enter name of file to put: ")
+                client.put(name)
+            elif command == 'mget':
+                name = input("Enter names of files to get, hitting ENTER after each file name: ")
+                names = []
+                while name != '':
+                    names.append(name)
+                    name = input()
+                client.mget(names)
+            elif command == 'mput':
+                name = input("Enter names of files to put, hitting ENTER after each file name: ")
+                names = []
+                while name != '':
+                    names.append(name)
+                    name = input()
+                client.mput(names)
+            elif command == 'binary':
+                client.toggle_binary()
+            elif command == 'compress':
+                client.toggle_compression()
+            elif command == 'encrypt':
+                client.toggle_encryption()
+            elif command == 'normal':
+                client.normal()
+            elif command == 'quit':
                 client.quit()
             else:
                 print("Unknown command. Type 'help' to get a list of commands.")
@@ -206,10 +253,10 @@ put - Upload a file to the server.
 mget - Download multiple files from the server.
 mput - Upload multiple files to the server.
 binary - Set the file transfer mode to binary (default).  
-quit - Quit the program.
 compress - Set compression on the file transfers.
 encrypt - Set encryption on the file transfers. 
 normal - Reset to no encryption or compression on file transfers.
+quit - Quit the program.
 '''
     print(help_str)
 

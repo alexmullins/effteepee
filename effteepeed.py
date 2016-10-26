@@ -148,10 +148,11 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         return 
 
 def main():
-    if len(sys.argv) < 3:
-        print("Missing <ip> <port> to listen on.")
-        return 1
-    ip, port = sys.argv[1], int(sys.argv[2])
+    #if len(sys.argv) < 3:
+        #print("Missing <ip> <port> to listen on.")
+        #return 1
+    #ip, port = sys.argv[1], int(sys.argv[2])
+    ip, port = '0.0.0.0', 12345
     server = EffTeePeeServer((ip, port), EffTeePeeHandler)
     print("Starting EffTeePee server on {}:{}".format(ip, port))
     try:
