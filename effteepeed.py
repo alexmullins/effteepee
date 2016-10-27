@@ -76,6 +76,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         # self.handlers[MsgType.PutRequest] = self._handle_put
         self.handlers[MsgType.QuitRequest] = self._handle_quit
         # self.handlers[MsgType.ChangeSettingsRequest] = self._handle_change_setting
+        self.handlers[MsgType.TextRequest] = self.handle_text
         return
 
     def handle(self):
@@ -139,6 +140,9 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         msg = create_server_hello_msg(self.binary, self.compression, self.encryption)
         sendmsg(self.request, msg["id"], msg)
         return
+
+    def handle_text(self, msg):
+        print(msg["text"].decode("utf-8"))
 
     def _handle_quit(self, msg):
         msg = create_quit_response_msg()

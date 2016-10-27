@@ -54,6 +54,9 @@ class MsgType(enum.IntEnum):
     EndOfFileChunks = 18
     EndOfFiles = 19
 
+    TextRequest = 20
+    TextResponse = 21
+
 def create_client_hello_msg(username, password):
     d = dict()
     d["id"] = MsgType.ClientHello
@@ -201,10 +204,10 @@ def recvmsg(socket):
     # read msg len bytes from the socket. 
     # pass data to parse method to return structure. 
     msgid = recvid(socket)
-    msglen = int.from_bytes(recvall(socket, 2), byteorder="big")
-    data = recvall(socket, msglen)
     if not msgid in decoders:
         raise UnknownMsgTypeException(msgid)
+    msglen = int.from_bytes(recvall(socket, 2), byteorder="big")
+    data = recvall(socket, msglen)
     dec = decoders[msgid]
     msg = dec(data)
     return (msgid, msg)
@@ -263,9 +266,28 @@ def decode_file_data(data, compression, encryption, key):
     """
     pass
 
+def create_text_message(text):
+    d = dict()
+    d["id"] = MsgType.TextRequest
+    d["text"] = text
+    return d
+
+def encode_text(msg):
+    frame = bytearray()
+    frame.extend(int(MsgType.TextRequest).to_bytes(1, byteorder="big"))
+    frame.extend(len(msg["text"]).to_bytes(2, byteorder="big"))
+    frame.extend(msg["text"].encode("utf-8"))
+    return bytes(frame)
+
+def decode_text(data):
+    text = str(data)
+    return create_text_message(text)
+
 decoders = dict()
 decoders[MsgType.ClientHello] = decode_client_hello
 decoders[MsgType.ServerHello] = decode_server_hello
+decoders[MsgType.TextRequest] = decode_text
+decoders[MsgType.TextResponse] = decode_text
 # decoders[MsgType.CDRequest] =
 # decoders[MsgType.CDResponse] =
 # decoders[MsgType.LSRequest] =
@@ -287,6 +309,8 @@ decoders[MsgType.ErrorResponse] = decode_error_response
 encoders = dict()
 encoders[MsgType.ClientHello] = encode_client_hello
 encoders[MsgType.ServerHello] = encode_server_hello
+encoders[MsgType.TextRequest] = encode_text
+encoders[MsgType.TextResponse] = encode_text
 # encoders[MsgType.CDRequest] =
 # encoders[MsgType.CDResponse] =
 # encoders[MsgType.LSRequest] =
