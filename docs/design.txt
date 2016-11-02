@@ -1,4 +1,4 @@
-Server:
+﻿Server:
 --------
 1. Parse the user's file.
 2. Start listening on <port>.
@@ -148,7 +148,7 @@ ChangeSettingRequest:
 <1 byte> - <setting> 
 <1 byte> - <value>
 <2 byte> - <extra len>
-<variable> - <extra data>
+<variable> - <ext`ra data>
 
 ChangeSettingResponse:
 <1 byte> - <ID>
@@ -157,6 +157,17 @@ ChangeSettingResponse:
 <1 byte> - <value>
 <2 byte> - <extra len>
 <variable> - <extra data>
+
+TextRequest:
+<1 byte> - <ID>
+<2 byte> - <MsgLen>
+<variable> - <Msg>
+
+TextResponse:
+<1 byte> - <ID>
+<2 byte> - <MsgLen>
+<variable> - <Msg>
+
 
 
 User file:

@@ -266,7 +266,7 @@ def decode_file_data(data, compression, encryption, key):
     """
     pass
 
-def create_text_message(text):
+def create_text_message(text, comtyp):
     d = dict()
     d["id"] = MsgType.TextRequest
     d["text"] = text
@@ -281,14 +281,15 @@ def encode_text(msg):
 
 def decode_text(data):
     text = str(data)
-    return create_text_message(text)
+    return create_text_message(text, ' ')
+
 
 decoders = dict()
 decoders[MsgType.ClientHello] = decode_client_hello
 decoders[MsgType.ServerHello] = decode_server_hello
 decoders[MsgType.TextRequest] = decode_text
 decoders[MsgType.TextResponse] = decode_text
-# decoders[MsgType.CDRequest] =
+decoders[MsgType.CDRequest] = decode_text
 # decoders[MsgType.CDResponse] =
 # decoders[MsgType.LSRequest] =
 # decoders[MsgType.LSResponse] =
@@ -311,7 +312,7 @@ encoders[MsgType.ClientHello] = encode_client_hello
 encoders[MsgType.ServerHello] = encode_server_hello
 encoders[MsgType.TextRequest] = encode_text
 encoders[MsgType.TextResponse] = encode_text
-# encoders[MsgType.CDRequest] =
+encoders[MsgType.CDRequest] = encode_text
 # encoders[MsgType.CDResponse] =
 # encoders[MsgType.LSRequest] =
 # encoders[MsgType.LSResponse] =

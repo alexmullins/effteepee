@@ -142,7 +142,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         return
 
     def handle_text(self, msg):
-        print(msg["text"].decode("utf-8"))
+        print(msg["text"])
 
     def _handle_quit(self, msg):
         msg = create_quit_response_msg()

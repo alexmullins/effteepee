@@ -2,6 +2,8 @@
 
 import socket
 import sys
+import getpass
+import re
 
 from common import *
 
@@ -79,6 +81,7 @@ class EffTeePeeClient():
         went ok.
         """
         print(directory, "cd")
+        self.text(directory, 3)
         pass 
     
     def ls(self):
@@ -106,6 +109,7 @@ class EffTeePeeClient():
         the local host machine. 
         """
         print(file_name, "get")
+        self.text(file_name, ' ')
         pass 
     
     def put(self, file_name):
@@ -114,6 +118,7 @@ class EffTeePeeClient():
         current working directory. 
         """
         print(file_name, "put")
+        self.text(file_name, ' ')
         pass 
     
     def mget(self, file_names):
@@ -121,6 +126,7 @@ class EffTeePeeClient():
         Same as put but for multiple files.
         """
         print(file_names, "mget")
+        self.text(file_names, ' ')
         pass 
     
     def mput(self, file_names):
@@ -128,6 +134,7 @@ class EffTeePeeClient():
         Same as get but for multiple files.
         """
         print(file_names, "mput")
+        self.text(file_names, ' ')
         pass 
     
     def quit(self):
@@ -169,8 +176,8 @@ class EffTeePeeClient():
         print("normal")
         pass
 
-    def text(self, msg):
-        txt = create_text_message(msg)
+    def text(self, msg, comtyp):
+        txt = create_text_message(msg, comtyp)
         sendmsg(self.socket, txt["id"], txt)
         
 def main():
@@ -200,10 +207,13 @@ def main():
     coms["normal"] = client.normal
     coms["quit"] =  client.quit
     username = input("Username: ")
-    password = input("Password: ")
+    password = getpass.getpass("Password: ")
     if len(username) == 0 or len(password) == 0:
-        print("Invalid username and password.")
+        print("Invalid username or password.")
         return 1
+   # if re.match("^([a-z][A-Z][0-9][@][a-z][A-Z][0-9][.][a-z][A-Z][0-9])$", password) == None:
+        #print("Invalid password.")
+        #return 1
     try:
         authed = client.handshake(username, password)
         if not authed:
@@ -229,21 +239,25 @@ def main():
 
 
 def print_help():
-    help_str = '''Supported Commands
+    help_str = ''''Supported Commands
 name - description
 
-cd - Change directory on the server.
-ls - Display files and folders in the current directory.
-dir - Display files and folders in the current directory.
-get - Download a file from the server.
-put - Upload a file to the server.
-mget - Download multiple files from the server.
-mput - Upload multiple files to the server.
-binary - Set the file transfer mode to binary (default).  
-compress - Toggle compression on the file transfers.
-encrypt - Toggle encryption on the file transfers. 
-normal - Reset to no encryption or compression on file transfers.
-quit - Quit the program.
+cd - Change directory on the server. (Takes one argument.)
+ls - Display files and folders in the current directory. (Takes no argument.)
+dir - Display files and folders in the current directory. (Takes no argument.)
+get - Download a file from the server. (Takes one argument.)
+put - Upload a file to the server. (Takes one argument.)
+mget - Download multiple files from the server. (Takes multiple arguments.)
+mput - Upload multiple files to the server. (Takes multiple arguments.)
+binary - Set the file transfer mode to binary (default). (Takes no argument.)
+compress - Toggle compression on the file transfers. (Takes no argument.)
+encrypt - Toggle encryption on the file transfers. (Takes no argument.)
+normal - Reset to no encryption or compression on file transfers. (Takes no argument.)
+quit - Quit the program. (Takes no argument.)
+
+Example command call:
+"> get textfile.txt"
+"> mget textfile.txt binfile.bin"
 '''
     print(help_str)
 
