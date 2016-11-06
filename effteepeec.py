@@ -84,7 +84,7 @@ class EffTeePeeClient():
         self.text(directory, 3)
         pass 
     
-    def ls(self):
+    def ls(self, path):
         """
         Return a list the files and folders in the current directory.
         The structure returned will look like:
@@ -93,15 +93,16 @@ class EffTeePeeClient():
             "files": [...]
         }
         """
-        print("ls")
-        pass 
-    
-    def dir(self):
-        """
-        Calls self.ls()
-        """
-        print("dir")
-        return self.ls() 
+        msg = create_ls_request_msg(path)
+        sendmsg(self.socket, msg["id"], msg)
+        (rid, msg) = recvmsg(self.socket)
+        if rid == MsgType.ErrorResponse:
+            print("TODO: Got an error")
+            return None
+        elif rid == MsgType.LSResponse:
+            return msg
+        print("Got an unknown response")
+        return None 
     
     def get(self, file_name):
         """
@@ -192,20 +193,7 @@ def main():
     except OSError as err:
         print("Error trying to connect: " + err)
         return 1
-    coms = dict()
-    coms["help"] = print_help
-    coms["cd"] = client.cd
-    coms["ls"] = client.ls
-    coms["dir"] = client.dir
-    coms["get"] = client.get
-    coms["put"] = client.put
-    coms["mget"] = client.mget
-    coms["mput"] = client.mput
-    coms["binary"] = client.toggle_binary
-    coms["compress"] = client.toggle_compression
-    coms["encrypt"] = client.toggle_encryption
-    coms["normal"] = client.normal
-    coms["quit"] =  client.quit
+
     username = input("Username: ")
     password = getpass.getpass("Password: ")
     if len(username) == 0 or len(password) == 0:
@@ -221,16 +209,30 @@ def main():
             return 0
         print("Welcome {}, type 'help' to get a list of commands.".format(client.username))
         while not client.closed:
-            command = input("> ")
-            comm = command.split(' ', 1)
-            if comm[0] in coms:
-                try:
-                    if len(comm) > 1:
-                        com = coms[comm[0]](comm[1])
-                    else:
-                        com = coms[comm[0]]()
-                except:
-                    print('An error has occurred when parsing command statement. Make sure the correct amount of arguments are given.')
+            command_str = input("> ")
+            command = None 
+            args = None
+            com = command_str.split(' ', 1)
+            command = com[0]
+            if len(com) > 1:
+                args = com[1]
+            # Match command
+            if command == "help":
+                print_help()
+            elif command == "quit":
+                client.quit()
+            elif command == "ls" or command == "dir":
+                if args == None:
+                    args = "."
+                msg = client.ls(args)
+                if msg is None:
+                    print("Could not ls with path: ", args)
+                print("Folders:")
+                for f in msg["folders"]:
+                    print("\t", f)
+                print("Files:")
+                for f in msg["files"]:
+                    print("\t", f)
             else:
                 print("Unknown command. Type 'help' to get a list of commands.")
     except ConnectionClosedException:

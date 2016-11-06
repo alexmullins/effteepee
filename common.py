@@ -192,6 +192,61 @@ def decode_error_response(data):
     """
     return create_error_response_msg(data[0])
 
+def create_ls_request_msg(path):
+    d = dict()
+    d["id"] = MsgType.LSRequest
+    d["path"] = path
+    return d
+
+def encode_ls_request(msg):
+    path_len = len(msg["path"])
+    frame = bytearray()
+    frame.extend(int(MsgType.LSRequest).to_bytes(1, byteorder="big"))
+    frame.extend(path_len.to_bytes(2, byteorder="big"))
+    frame.extend(msg["path"].encode("utf-8"))
+    return bytes(frame)
+
+def decode_ls_request(data):
+    path = data.decode("utf-8")
+    return create_ls_request_msg(path) 
+
+def create_ls_response_msg(folders, files):
+    """
+    folders and files are a list of strings 
+    that contain the respective folders and files 
+    found in the ls request path. 
+    """
+    d = dict()
+    d["id"] = MsgType.LSResponse
+    d["folders"] = folders 
+    d["files"] = files 
+    return d 
+
+def encode_ls_response(msg):
+    folders_str = ";".join(msg["folders"])
+    folders_len = len(folders_str)
+    files_str = ";".join(msg["files"])
+    files_len = len(files_str)
+    msg_len = 4 + 4 + folders_len + files_len
+
+    frame = bytearray()
+    frame.extend(int(MsgType.LSResponse).to_bytes(1, byteorder="big"))
+    frame.extend(msg_len.to_bytes(2, byteorder="big"))
+    frame.extend(folders_len.to_bytes(4, byteorder="big"))
+    frame.extend(files_len.to_bytes(4, byteorder="big"))
+    frame.extend(folders_str.encode("utf-8"))
+    frame.extend(files_str.encode("utf-8"))
+    return bytes(frame)
+
+def decode_ls_response(data):
+    folders_len = int.from_bytes(data[0:4], byteorder="big")
+    files_len = int.from_bytes(data[4:8], byteorder="big")
+    folders_str = data[8:8+folders_len].decode("utf-8")
+    files_str = data[8+folders_len:8+folders_len+files_len].decode("utf-8")
+    folders = folders_str.split(";")
+    files = files_str.split(";")
+    return create_ls_response_msg(folders, files)
+
 def recvmsg(socket):
     """
     recvmsg will read an effteepee protocol message
@@ -291,8 +346,8 @@ decoders[MsgType.TextRequest] = decode_text
 decoders[MsgType.TextResponse] = decode_text
 decoders[MsgType.CDRequest] = decode_text
 # decoders[MsgType.CDResponse] =
-# decoders[MsgType.LSRequest] =
-# decoders[MsgType.LSResponse] =
+decoders[MsgType.LSRequest] = decode_ls_request
+decoders[MsgType.LSResponse] = decode_ls_response
 # decoders[MsgType.GetRequest] =
 # decoders[MsgType.GetResponse] =
 # decoders[MsgType.PutRequest] =
@@ -314,8 +369,8 @@ encoders[MsgType.TextRequest] = encode_text
 encoders[MsgType.TextResponse] = encode_text
 encoders[MsgType.CDRequest] = encode_text
 # encoders[MsgType.CDResponse] =
-# encoders[MsgType.LSRequest] =
-# encoders[MsgType.LSResponse] =
+encoders[MsgType.LSRequest] = encode_ls_request
+encoders[MsgType.LSResponse] = encode_ls_response
 # encoders[MsgType.GetRequest] =
 # encoders[MsgType.GetResponse] =
 # encoders[MsgType.PutRequest] =

@@ -3,6 +3,10 @@
 import socketserver
 import hashlib
 import sys
+import glob
+import os
+from os import listdir
+from os.path import isfile, join
 
 from common import *
 
@@ -67,11 +71,12 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self.encryption = False
         self.username = None
         self.root_directory = None
+        self.cwd = None
         self.quit = False
         self.handlers = dict()
         self.handlers[MsgType.ClientHello] = self._handshake
         # self.handlers[MsgType.CDRequest] = self._handle_cd
-        # self.handlers[MsgType.LSRequest] = self._handle_ls
+        self.handlers[MsgType.LSRequest] = self._handle_ls
         # self.handlers[MsgType.GetRequest] = self._handle_get
         # self.handlers[MsgType.PutRequest] = self._handle_put
         self.handlers[MsgType.QuitRequest] = self._handle_quit
@@ -136,6 +141,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         print("{} authenticated.".format(username))
         self.username = username
         self.root_directory = directory
+        self.cwd = directory
         # send back ServerHello
         msg = create_server_hello_msg(self.binary, self.compression, self.encryption)
         sendmsg(self.request, msg["id"], msg)
@@ -150,6 +156,39 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self._close()
         print("{} has quit.".format(self.username))
         return 
+
+    def _handle_ls(self, msg):
+        print("Got ls command: ", msg)
+        path = msg["path"]
+        if path == ".":
+            path = self.cwd
+        else:
+            print("extended path")
+            path = join(self.root_directory, path)
+            print(self.root_directory)
+            print(path)
+        print("Path to ls: ", path)
+        folders = list()
+        files = list()
+        if "*" in path:
+            # Glob
+            files = glob.glob(path)
+            for i in range(len(files)): # remove the path from the beginning
+                filename = files[i]
+                parts = filename.split(os.path.sep)
+                print(parts)
+                files[i] = parts[-1]
+        else:
+            # Regular os.listdir()
+            listings = listdir(path)
+            for l in listings:
+                if isfile(join(path,l)):
+                    files.append(l)
+                else:
+                    folders.append(l)
+
+        msg = create_ls_response_msg(folders, files)
+        sendmsg(self.request, msg["id"], msg)
 
 def main():
     #if len(sys.argv) < 3:

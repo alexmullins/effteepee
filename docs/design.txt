@@ -60,6 +60,7 @@ CDResponse:
 LSRequest:
 <1 byte> - <ID>
 <2 byte> - <MsgLen>
+<variable> - <ls-path>
 
 LSResponse:
 <1 byte> - <ID>
