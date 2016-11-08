@@ -48,14 +48,11 @@ ServerHello:
 CDRequest: 
 <1 byte> - <ID>
 <2 byte> - <MsgLen>
-<1 byte> - <directory name len>
 <variable> - <directory name>
 
 CDResponse:
 <1 byte> - <ID>
 <2 byte> - <MsgLen>
-<1 byte> - <directory name len>
-<variable> - <directory name>
 
 LSRequest:
 <1 byte> - <ID>
@@ -106,7 +103,6 @@ File:
 FileChunk:
 <1 byte> - <ID>
 <2 byte> - <MsgLen>
-<4 byte> - <file chunk length>
 <variable> - <file chunk data>
 
 EndOfFileChunks:
@@ -120,7 +116,7 @@ PutRequest:
 <variable> - <File 1>
 ... repeat ...
 <variable> - <File n>
-<1 byte> - <End of Files>
+<1 byte> - <EndOfFiles>
 
 PutResponse:
 <1 byte> - <ID>
@@ -146,18 +142,13 @@ ErrorResponse:
 ChangeSettingRequest:
 <1 byte> - <ID>
 <2 byte> - <MsgLen>
-<1 byte> - <setting> 
+<1 byte> - <setting-string-len>
+<variable> - <setting-string> 
 <1 byte> - <value>
-<2 byte> - <extra len>
-<variable> - <ext`ra data>
 
 ChangeSettingResponse:
 <1 byte> - <ID>
 <2 byte> - <MsgLen>
-<1 byte> - <setting>
-<1 byte> - <value>
-<2 byte> - <extra len>
-<variable> - <extra data>
 
 TextRequest:
 <1 byte> - <ID>

@@ -75,12 +75,12 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self.quit = False
         self.handlers = dict()
         self.handlers[MsgType.ClientHello] = self._handshake
-        # self.handlers[MsgType.CDRequest] = self._handle_cd
+        self.handlers[MsgType.CDRequest] = self._handle_cd
         self.handlers[MsgType.LSRequest] = self._handle_ls
         # self.handlers[MsgType.GetRequest] = self._handle_get
         # self.handlers[MsgType.PutRequest] = self._handle_put
         self.handlers[MsgType.QuitRequest] = self._handle_quit
-        # self.handlers[MsgType.ChangeSettingsRequest] = self._handle_change_setting
+        self.handlers[MsgType.ChangeSettingsRequest] = self._handle_change_setting
         return
 
     def handle(self):
@@ -93,6 +93,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         except ConnectionClosedException:
             print("Connection closed unexpectedly")
             self._close()
+        print("{} connection has closed.".format(self.username))
         return
     
     def _handle_commands(self):
@@ -102,8 +103,9 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         while not self.quit:
             rid, msg = recvmsg(self.request)
             if rid not in self.handlers:
-                print("No handler for message type: {}".format(rid))
+                print("No handler for message type: {}".format(str(MsgType(rid))))
                 self._close()
+                continue
             handler = self.handlers[rid]
             if not self.username and rid != MsgType.ClientHello:
                 # We haven't authenticated and we didn't get a ClientHello
@@ -161,7 +163,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         if path == ".":
             path = self.cwd
         else:
-            path = join(self.root_directory, path)
+            path = join(self.cwd, path)
         print("Path to ls: ", path)
         folders = list()
         files = list()
@@ -183,6 +185,37 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
 
         msg = LSResponse(folders, files)
         self.sendmsg(msg)
+    
+    def _handle_change_setting(self, msg):
+        print("Setting: ", msg.setting)
+        print("Value: ", msg.value)
+        s = msg.setting
+        v = msg.value
+        if s == "encryption":
+            self.encryption = v
+        elif s == "compression":
+            self.compression = v
+        elif s == "binary":
+            self.binary = v
+        else:
+            sendmsg(self.request, ErrorResponse(ErrorCodes.UnknownSetting))
+            return
+        self.sendmsg(ChangeSettingsResponse())
+    
+    def _handle_cd(self, msg):
+        new_cwd = os.path.abspath(join(self.cwd, msg.path))
+        print("Potential cwd: {}".format(new_cwd))
+        if not self._valid_path(new_cwd):
+            self.sendmsg(ErrorResponse(ErrorCodes.BadCDPath))
+            return
+        self.cwd = new_cwd
+        self.sendmsg(CDResponse())
+    
+    def _valid_path(self, new_cwd):
+        resolved = new_cwd + os.path.sep
+        if os.path.isdir(resolved) and resolved.startswith(self.root_directory):
+            return True
+        return False 
 
 def main():
     #if len(sys.argv) < 3:

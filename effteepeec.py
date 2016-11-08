@@ -64,7 +64,7 @@ class EffTeePeeClient():
         sendmsg(self.socket, msg)
         (rid, msg) = recvmsg(self.socket)
         if rid == MsgType.ErrorResponse:
-            self.error = msg["code"]
+            self.error = msg.error_code
             self._close()
             return False
         if rid == MsgType.ServerHello:
@@ -78,9 +78,14 @@ class EffTeePeeClient():
     def cd(self, directory):
         """
         Change directory on the server. Return True if everything 
-        went ok.
+        went ok. 
         """
-        print(directory, "cd")
+        msg = CDRequest(directory)
+        sendmsg(self.socket, msg)
+        (rid, msg) = recvmsg(self.socket)
+        if rid != MsgType.CDResponse:
+            return False
+        return True
     
     def ls(self, path):
         """
@@ -137,34 +142,66 @@ class EffTeePeeClient():
     
     def toggle_binary(self):
         """
-        Toggle binary mode on the connection. Doesn't do anything at the moment.
+        Toggle binary mode on the connection. 
+        Doesn't do anything at the moment. Returns
+        true if everything went alright
         """
-        print("binary")
+        value = not self.binary
+        msg = ChangeSettingsRequest("binary", value)
+        sendmsg(self.socket, msg)
+        (rid, msg) = recvmsg(self.socket)
+        if rid != MsgType.ChangeSettingsResponse:
+            return False
+        self.binary = value
+        return True
     
     def toggle_compression(self):
         """
-        Toggle compression on the connection.
+        Toggle compression on the connection. Returns
+        true if everything went alright.
         """
-        print("compression")
+        value = not self.compression
+        msg = ChangeSettingsRequest("compression", value)
+        sendmsg(self.socket, msg)
+        (rid, msg) = recvmsg(self.socket)
+        if rid != MsgType.ChangeSettingsResponse:
+            return False
+        self.compression = value
+        return True
     
     def toggle_encryption(self):
         """
-        Toggle encryption on the connection.
+        Toggle encryption on the connection. Returns
+        true if everything went alright.
         """
-        print("encryption")
+        value = not self.encryption
+        msg = ChangeSettingsRequest("encryption", value)
+        sendmsg(self.socket, msg)
+        (rid, msg) = recvmsg(self.socket)
+        if rid != MsgType.ChangeSettingsResponse:
+            return False
+        self.encryption = value
+        return True
     
     def normal(self):
         """
-        Resets the compression and encryption to Off.
+        Resets the compression and encryption to Off. Returns 
+        truen if everything went alright.
         """
-        print("normal")
+        if self.encryption:
+            ok1 = self.toggle_encryption()
+        if self.compression:
+            ok2 = self.toggle_compression()
+        return ok1 and ok2
         
 def main():
     #if len(sys.argv) < 3:
         #print("Missing <ip> <port> to connect to.")
         #return 1
     #ip, port = sys.argv[1], int(sys.argv[2])
-    ip, port = input("Ip: "), 12345
+    ip, port = input("Ip (localhost): "), 12345
+    if ip == "":
+        ip = "localhost"
     client = EffTeePeeClient()
     try:
         client.connect(ip ,port)
@@ -211,6 +248,30 @@ def main():
                 print("Files:")
                 for f in msg.files:
                     print("\t", f)
+            elif command == "encrypt":
+                ok = client.toggle_encryption()
+                if not ok:
+                    print("Could not change setting.")
+            elif command == "compress":
+                ok = client.toggle_compression()
+                if not ok:
+                    print("Could not change setting.")
+            elif command == "binary":
+                ok = client.toggle_binary()
+                if not ok:
+                    print("Could not change setting.")
+            elif command == "normal":
+                ok = client.normal()
+                if not ok:
+                    print("Could not change setting.")
+            elif command == "settings":
+                print("Binary: ", client.binary)
+                print("Compression: ", client.compression)
+                print("Encryption: ", client.encryption)
+            elif command == "cd":
+                ok = client.cd(args)
+                if not ok:
+                    print("Could not change directory.")
             else:
                 print("Unknown command. Type 'help' to get a list of commands.")
     except ConnectionClosedException:
@@ -219,21 +280,22 @@ def main():
 
 
 def print_help():
-    help_str = ''''Supported Commands
-name - description
+    help_str = '''Supported Commands
+name - (arguments) - description
 
-cd - Change directory on the server. (Takes one argument.)
-ls - Display files and folders in the current directory. (Takes no argument.)
-dir - Display files and folders in the current directory. (Takes no argument.)
-get - Download a file from the server. (Takes one argument.)
-put - Upload a file to the server. (Takes one argument.)
-mget - Download multiple files from the server. (Takes multiple arguments.)
-mput - Upload multiple files to the server. (Takes multiple arguments.)
-binary - Set the file transfer mode to binary (default). (Takes no argument.)
-compress - Toggle compression on the file transfers. (Takes no argument.)
-encrypt - Toggle encryption on the file transfers. (Takes no argument.)
-normal - Reset to no encryption or compression on file transfers. (Takes no argument.)
-quit - Quit the program. (Takes no argument.)
+cd - (path) - Change directory on the server. 
+ls - (path) - Display files and folders in the current directory.
+dir - (path) - Display files and folders in the current directory.
+get - (file1) - Download a file from the server.
+put - (file1) - Upload a file to the server.
+mget - (file1, file2, ...) - Download multiple files from the server.
+mput - (file1, file2, ...) - Upload multiple files to the server.
+binary - () - Toggle binary mode on the connection. (not implemented)
+compress - () - Toggle compression on the file transfers.
+encrypt - () - Toggle encryption on the file transfers.
+normal - () - Reset to no encryption and no compression on file transfers.
+settings - () - Print the current connection settings.
+quit - () - Quit the program.
 
 Example command call:
 "> get textfile.txt"

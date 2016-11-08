@@ -24,6 +24,9 @@ class ErrorCodes(enum.IntEnum):
     UnknownRequest = 11
     ConnectionClosed = 12
 
+    UnknownSetting = 20
+    BadCDPath = 21
+
 def is_fatal_error(code):
     if code < 20:
         return True
@@ -55,12 +58,9 @@ class MsgType(enum.IntEnum):
     EndOfFileChunks = 18
     EndOfFiles = 19
 
-    TextRequest = 20
-    TextResponse = 21
-
 class Message(metaclass=abc.ABCMeta):
     """
-    Abstract base class for all MessageTyes.
+    Abstract base class for all MessageTypes.
     Each message should know how to encode itself
     to a byte array, and decode a byte array and
     update itself.
@@ -241,14 +241,19 @@ class CDRequest(Message):
     """
     CDRequest Message.
     """
+    def __init__(self, path=""):
+        self.path = path
+
     def id(self):
         return MsgType.CDRequest
 
     def encode(self):
-        pass 
+        frame = bytearray()
+        frame.extend(self.path.encode("utf-8"))
+        return bytes(frame) 
     
     def decode(self, data):
-        pass 
+        self.path = data.decode("utf-8") 
 
 class CDResponse(Message):
     """
@@ -258,7 +263,7 @@ class CDResponse(Message):
         return MsgType.CDResponse
 
     def encode(self):
-        pass 
+        return bytes()
     
     def decode(self, data):
         pass
@@ -319,14 +324,27 @@ class ChangeSettingsRequest(Message):
     """
     ChangeSettingsRequest Message.
     """
+    def __init__(self, setting="", value=False):
+        self.setting = setting
+        self.value = value
+
     def id(self):
         return MsgType.ChangeSettingsRequest
 
     def encode(self):
-        pass 
+        setting_str_len = len(self.setting)
+
+        frame = bytearray()
+        frame.extend(setting_str_len.to_bytes(1, byteorder="big"))
+        frame.extend(self.setting.encode("utf-8"))
+        frame.extend(self.value.to_bytes(1, byteorder="big"))
+        return bytes(frame) 
     
     def decode(self, data):
-        pass 
+        settings_str_len = int(data[0])
+        self.setting = data[1:1+settings_str_len].decode("utf-8")
+        self.value = bool(data[-1])
+
 
 class ChangeSettingsResponse(Message):
     """
@@ -336,7 +354,7 @@ class ChangeSettingsResponse(Message):
         return MsgType.ChangeSettingsResponse
 
     def encode(self):
-        pass 
+        return bytes() 
     
     def decode(self, data):
         pass
@@ -449,8 +467,7 @@ def sendmsg(socket, msg):
     on the socket. 
     """
     if not msg.id() in messages:
-        raise UnknownMsgTypeException(msgid)
-    
+        raise UnknownMsgTypeException(msg.id())
     data = msg.encode()
     data = wrap_in_id_length(msg.id(), data)
     socket.sendall(data)
