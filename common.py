@@ -1,5 +1,6 @@
 import pathlib
 import enum
+import abc
 
 DEFAULT_USER_FILE = str(pathlib.Path('.', 'data', 'userfile.txt'))
 DEFAULT_FILE_CHUNK_SIZE = 8192
@@ -57,195 +58,361 @@ class MsgType(enum.IntEnum):
     TextRequest = 20
     TextResponse = 21
 
-def create_client_hello_msg(username, password):
-    d = dict()
-    d["id"] = MsgType.ClientHello
-    d["username"] = username
-    d["password"] = password
-    return d
-
-def encode_client_hello(msg):
+class Message(metaclass=abc.ABCMeta):
     """
-    Returns the byte sequence for a ClientHello 
-    that can be written to the connection. Function 
-    assumes that username and password lens are <= 255
-    characters
+    Abstract base class for all MessageTyes.
+    Each message should know how to encode itself
+    to a byte array, and decode a byte array and
+    update itself.
     """
-    username = msg["username"]
-    password = msg["password"]
-    userlen = int(len(username))
-    passlen = int(len(password))
-    msglen = 1 + 1 + userlen + passlen
-    frame = bytearray()
-    frame.extend(int(MsgType.ClientHello).to_bytes(1, byteorder="big"))
-    frame.extend(msglen.to_bytes(2, byteorder="big"))
-    frame.extend(userlen.to_bytes(1, byteorder="big"))
-    frame.extend(passlen.to_bytes(1, byteorder="big"))
-    frame.extend(username.encode("utf-8"))
-    frame.extend(password.encode("utf-8"))
-    return bytes(frame)
+    @abc.abstractmethod
+    def id(self):
+        """
+        Should return the MsgType id for the 
+        subclassed Message.
+        """
 
-def decode_client_hello(data):
+    @abc.abstractmethod
+    def encode(self):
+        """
+        Should encode all values and return a byte array.
+        Should not worry about encoding the MsgType id or 
+        the msg len value. That will be handle elsewhere.
+        """
+
+    @abc.abstractmethod
+    def decode(self, data):
+        """
+        Should decode the given data byte array
+        and set the appropriate member variables.
+        Should not worry about decoding the MsgType id or 
+        the msg len value from data, those will be stripped off.
+        """
+
+class ClientHello(Message):
     """
-    Will try and parse a ClientHello message from the binary data. 
-    Returns a ClientHello stucture like:
-    {
-        "id": 1,
-        "username": "alex",
-        "password": "password",
-    } 
+    ClientHello Message.
     """
-    userlen = int(data[0])
-    passlen = int(data[1])
-    useroff = 2
-    passoff = useroff + userlen
-    username = data[useroff:passoff].decode("utf-8")
-    password = data[passoff:passoff+passlen].decode("utf-8")
-    return create_client_hello_msg(username, password)
+    def __init__(self, username="",password=""):
+        self.username = username
+        self.password = password
 
-def create_server_hello_msg(binary, compression, encryption):
-    d = dict()
-    d["id"] = MsgType.ServerHello
-    d["binary"] = binary
-    d["compression"] = compression
-    d["encryption"] = encryption
-    return d
+    def id(self):
+        return MsgType.ClientHello
+    
+    def encode(self):
+        userlen = len(self.username)
+        passlen = len(self.password)
+        frame = bytearray()
+        frame.extend(userlen.to_bytes(1, byteorder="big"))
+        frame.extend(passlen.to_bytes(1, byteorder="big"))
+        frame.extend(self.username.encode("utf-8"))
+        frame.extend(self.password.encode("utf-8"))
+        return bytes(frame)
+    
+    def decode(self, data):
+        userlen = data[0]
+        passlen = data[1]
+        useroff = 2
+        passoff = useroff + userlen
+        self.username = data[useroff:passoff].decode("utf-8")
+        self.password = data[passoff:passoff+passlen].decode("utf-8")
 
-def encode_server_hello(msg):
+
+class ServerHello(Message):
     """
-    Returns the byte sequence for a ServerHello 
-    that can be written to the connection.
+    ServerHello Message.
     """
-    frame = bytearray()
-    frame.extend(int(MsgType.ServerHello).to_bytes(1, byteorder="big"))
-    frame.extend((3).to_bytes(2, byteorder="big"))
-    frame.extend(int(msg["binary"]).to_bytes(1, byteorder="big"))
-    frame.extend(int(msg["compression"]).to_bytes(1, byteorder="big"))
-    frame.extend(int(msg["encryption"]).to_bytes(1, byteorder="big"))
-    return bytes(frame)
+    def __init__(self, binary=True, compression=False, encryption=False):
+        self.binary = binary 
+        self.compression = compression 
+        self.encryption = encryption
 
-def decode_server_hello(data):
+    def id(self):
+        return MsgType.ServerHello
+    
+    def encode(self):
+        frame = bytearray()
+        frame.extend(int(self.binary).to_bytes(1, byteorder="big"))
+        frame.extend(int(self.compression).to_bytes(1, byteorder="big"))
+        frame.extend(int(self.encryption).to_bytes(1, byteorder="big"))
+        return bytes(frame) 
+    
+    def decode(self, data):
+        self.binary = bool(data[0])
+        self.compression = bool(data[1])
+        self.encryption = bool(data[2])
+
+class QuitRequest(Message):
     """
-    Will try and parse a ServerHello message from binary data. 
-    Returns ServerHello stucture like:
-    {
-        "id": 2,
-        "binary": True,
-        "compression": False,
-        "encryption": False 
-    } 
+    QuitRequest Message. 
     """
-    binary = bool(data[0])
-    compression = bool(data[1])
-    encryption = bool(data[2])
-    return create_server_hello_msg(binary, compression, encryption)
+    def id(self):
+        return MsgType.QuitRequest
 
-def create_quit_request_msg():
-    d = dict()
-    d["id"] = MsgType.QuitRequest
-    return d
+    def encode(self):
+        return bytes()
 
-def encode_quit_request(msg):
-    frame = bytearray()
-    frame.extend(int(MsgType.QuitRequest).to_bytes(1, byteorder="big"))
-    frame.extend((0).to_bytes(2, byteorder="big"))
-    return bytes(frame)
+    def decode(self, data):
+        pass
 
-def decode_quit_request(data):
-    return create_quit_request_msg()
-
-def create_quit_response_msg():
-    d = dict()
-    d["id"] = MsgType.QuitResponse
-    return d
-
-def encode_quit_response(msg):
-    frame = bytearray()
-    frame.extend(int(MsgType.QuitResponse).to_bytes(1, byteorder="big"))
-    frame.extend((0).to_bytes(2, byteorder="big"))
-    return bytes(frame)
-
-def decode_quit_response(data):
-    return create_quit_response_msg()
-
-def create_error_response_msg(code):
-    d = dict()
-    d["id"] = MsgType.ErrorResponse
-    d["code"] = ErrorCodes(code)
-    return d
-
-def encode_error_response(msg):
-    frame = bytearray()
-    frame.extend(int(MsgType.ErrorResponse).to_bytes(1, byteorder="big"))
-    frame.extend((1).to_bytes(2, byteorder="big"))
-    frame.extend(int(msg["code"]).to_bytes(1, byteorder="big"))
-    return bytes(frame)
-
-def decode_error_response(data):
+class QuitResponse(Message):
     """
-    Will try and parse a ErrorResponse message from binary data.
-    Returns an ErrorResponse structure like:
-    {
-        "id": 15,
-        "code": 10
-    }
+    QuitResponse Message. 
     """
-    return create_error_response_msg(data[0])
+    def id(self):
+        return MsgType.QuitResponse
 
-def create_ls_request_msg(path):
-    d = dict()
-    d["id"] = MsgType.LSRequest
-    d["path"] = path
-    return d
+    def encode(self):
+        return bytes() 
+    
+    def decode(self, data):
+        pass 
 
-def encode_ls_request(msg):
-    path_len = len(msg["path"])
-    frame = bytearray()
-    frame.extend(int(MsgType.LSRequest).to_bytes(1, byteorder="big"))
-    frame.extend(path_len.to_bytes(2, byteorder="big"))
-    frame.extend(msg["path"].encode("utf-8"))
-    return bytes(frame)
-
-def decode_ls_request(data):
-    path = data.decode("utf-8")
-    return create_ls_request_msg(path) 
-
-def create_ls_response_msg(folders, files):
+class ErrorResponse(Message):
     """
-    folders and files are a list of strings 
-    that contain the respective folders and files 
-    found in the ls request path. 
+    ErrorResponse Message. 
     """
-    d = dict()
-    d["id"] = MsgType.LSResponse
-    d["folders"] = folders 
-    d["files"] = files 
-    return d 
+    def __init__(self, error_code=None):
+        self.error_code = error_code
 
-def encode_ls_response(msg):
-    folders_str = ";".join(msg["folders"])
-    folders_len = len(folders_str)
-    files_str = ";".join(msg["files"])
-    files_len = len(files_str)
-    msg_len = 4 + 4 + folders_len + files_len
+    def id(self):
+        return MsgType.ErrorResponse
 
-    frame = bytearray()
-    frame.extend(int(MsgType.LSResponse).to_bytes(1, byteorder="big"))
-    frame.extend(msg_len.to_bytes(2, byteorder="big"))
-    frame.extend(folders_len.to_bytes(4, byteorder="big"))
-    frame.extend(files_len.to_bytes(4, byteorder="big"))
-    frame.extend(folders_str.encode("utf-8"))
-    frame.extend(files_str.encode("utf-8"))
-    return bytes(frame)
+    def encode(self):
+        frame = bytearray()
+        frame.extend(int(self.error_code).to_bytes(1, byteorder="big"))
+        return bytes(frame) 
+    
+    def decode(self, data):
+        self.error_code = ErrorCodes(data[0])
 
-def decode_ls_response(data):
-    folders_len = int.from_bytes(data[0:4], byteorder="big")
-    files_len = int.from_bytes(data[4:8], byteorder="big")
-    folders_str = data[8:8+folders_len].decode("utf-8")
-    files_str = data[8+folders_len:8+folders_len+files_len].decode("utf-8")
-    folders = folders_str.split(";")
-    files = files_str.split(";")
-    return create_ls_response_msg(folders, files)
+class LSRequest(Message):
+    """
+    LSRequest Message. 
+    """
+    def __init__(self, path=""):
+        self.path = path
+
+    def id(self):
+        return MsgType.LSRequest
+
+    def encode(self):
+        frame = bytearray()
+        frame.extend(self.path.encode("utf-8"))
+        return bytes(frame)
+    
+    def decode(self, data):
+        self.path = data.decode("utf-8")   
+
+class LSResponse(Message):
+    """
+    LSResponse Message.
+    """
+    def __init__(self, folders=list(), files=list()):
+        self.folders = folders
+        self.files = files
+
+    def id(self):
+        return MsgType.LSResponse
+
+    def encode(self):
+        folders_str = ";".join(self.folders)
+        folders_len = len(folders_str)
+        files_str = ";".join(self.files)
+        files_len = len(files_str)
+
+        frame = bytearray()
+        frame.extend(folders_len.to_bytes(4, byteorder="big"))
+        frame.extend(files_len.to_bytes(4, byteorder="big"))
+        frame.extend(folders_str.encode("utf-8"))
+        frame.extend(files_str.encode("utf-8"))
+        return bytes(frame)
+
+    def decode(self, data):
+        folders_len = int.from_bytes(data[0:4], byteorder="big")
+        files_len = int.from_bytes(data[4:8], byteorder="big")
+        folders_str = data[8:8+folders_len].decode("utf-8")
+        files_str = data[8+folders_len:8+folders_len+files_len].decode("utf-8")
+        self.folders = folders_str.split(";")
+        self.files = files_str.split(";")
+
+class CDRequest(Message):
+    """
+    CDRequest Message.
+    """
+    def id(self):
+        return MsgType.CDRequest
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass 
+
+class CDResponse(Message):
+    """
+    CDResponse Message.
+    """
+    def id(self):
+        return MsgType.CDResponse
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass
+
+class GetRequest(Message):
+    """
+    GetRequest Message.
+    """
+    def id(self):
+        return MsgType.GetRequest
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass 
+
+class GetResponse(Message):
+    """
+    GetResponse Message.
+    """
+    def id(self):
+        return MsgType.GetResponse
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass
+
+class PutRequest(Message):
+    """
+    PutRequest Message.
+    """
+    def id(self):
+        return MsgType.PutRequest
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass 
+
+class PutResponse(Message):
+    """
+    PutResponse Message.
+    """
+    def id(self):
+        return MsgType.PutResponse
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass
+
+class ChangeSettingsRequest(Message):
+    """
+    ChangeSettingsRequest Message.
+    """
+    def id(self):
+        return MsgType.ChangeSettingsRequest
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass 
+
+class ChangeSettingsResponse(Message):
+    """
+    ChangeSettingsResponse Message.
+    """
+    def id(self):
+        return MsgType.ChangeSettingsResponse
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass
+
+class File(Message):
+    """
+    File Message.
+    """
+    def id(self):
+        return MsgType.File
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass
+
+class FileChunk(Message):
+    """
+    FileChunk Message.
+    """
+    def id(self):
+        return MsgType.FileChunk
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass
+
+class EndOfFileChunks(Message):
+    """
+    EndOfFileChunks Message.
+    """
+    def id(self):
+        return MsgType.EndOfFileChunks
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass
+
+class EndOfFiles(Message):
+    """
+    EndOfFiles Message.
+    """
+    def id(self):
+        return MsgType.EndOfFiles
+
+    def encode(self):
+        pass 
+    
+    def decode(self, data):
+        pass
+
+messages = dict()
+messages[MsgType.ClientHello] = ClientHello
+messages[MsgType.ServerHello] = ServerHello
+messages[MsgType.CDRequest] = CDRequest
+messages[MsgType.CDResponse] = CDResponse
+messages[MsgType.LSRequest] = LSRequest
+messages[MsgType.LSResponse] = LSResponse
+messages[MsgType.GetRequest] = GetRequest
+messages[MsgType.GetResponse] = GetResponse
+messages[MsgType.PutRequest] = PutRequest
+messages[MsgType.PutResponse] = PutResponse
+messages[MsgType.QuitRequest] = QuitRequest
+messages[MsgType.QuitResponse] = QuitResponse
+messages[MsgType.ChangeSettingsRequest] = ChangeSettingsRequest
+messages[MsgType.ChangeSettingsResponse] = ChangeSettingsResponse
+messages[MsgType.ErrorResponse] = ErrorResponse
+messages[MsgType.File] = File 
+messages[MsgType.FileChunk] = FileChunk
+messages[MsgType.EndOfFileChunks] = EndOfFileChunks
+messages[MsgType.EndOfFiles] = EndOfFiles
 
 def recvmsg(socket):
     """
@@ -259,23 +426,33 @@ def recvmsg(socket):
     # read msg len bytes from the socket. 
     # pass data to parse method to return structure. 
     msgid = recvid(socket)
-    if not msgid in decoders:
+    if not msgid in messages:
         raise UnknownMsgTypeException(msgid)
     msglen = int.from_bytes(recvall(socket, 2), byteorder="big")
     data = recvall(socket, msglen)
-    dec = decoders[msgid]
-    msg = dec(data)
+    msgtype = messages[msgid]
+    msg = msgtype()
+    msg.decode(data)
     return (msgid, msg)
 
-def sendmsg(socket, msgid, msg):
+def wrap_in_id_length(msgid, data):
+    msglen = len(data)
+    frame = bytearray()
+    frame.extend(int(msgid).to_bytes(1, byteorder="big"))
+    frame.extend((msglen).to_bytes(2, byteorder="big"))
+    frame.extend(data)
+    return bytes(frame)
+
+def sendmsg(socket, msg):
     """
     sendmsg will send an effteepee protocol message
     on the socket. 
     """
-    if not msgid in encoders:
+    if not msg.id() in messages:
         raise UnknownMsgTypeException(msgid)
-    enc = encoders[msgid]
-    data = enc(msg)
+    
+    data = msg.encode()
+    data = wrap_in_id_length(msg.id(), data)
     socket.sendall(data)
 
 def recvid(socket):
@@ -320,68 +497,3 @@ def decode_file_data(data, compression, encryption, key):
     is True then decode is a NOP.
     """
     pass
-
-def create_text_message(text, comtyp):
-    d = dict()
-    d["id"] = MsgType.TextRequest
-    d["text"] = text
-    return d
-
-def encode_text(msg):
-    frame = bytearray()
-    frame.extend(int(MsgType.TextRequest).to_bytes(1, byteorder="big"))
-    frame.extend(len(msg["text"]).to_bytes(2, byteorder="big"))
-    frame.extend(msg["text"].encode("utf-8"))
-    return bytes(frame)
-
-def decode_text(data):
-    text = str(data)
-    return create_text_message(text, ' ')
-
-
-decoders = dict()
-decoders[MsgType.ClientHello] = decode_client_hello
-decoders[MsgType.ServerHello] = decode_server_hello
-decoders[MsgType.TextRequest] = decode_text
-decoders[MsgType.TextResponse] = decode_text
-decoders[MsgType.CDRequest] = decode_text
-# decoders[MsgType.CDResponse] =
-decoders[MsgType.LSRequest] = decode_ls_request
-decoders[MsgType.LSResponse] = decode_ls_response
-# decoders[MsgType.GetRequest] =
-# decoders[MsgType.GetResponse] =
-# decoders[MsgType.PutRequest] =
-# decoders[MsgType.PutResponse] =
-decoders[MsgType.QuitRequest] = decode_quit_request
-decoders[MsgType.QuitResponse] = decode_quit_response
-# decoders[MsgType.ChangeSettingsRequest] =
-# decoders[MsgType.ChangeSettingsResponse] =
-decoders[MsgType.ErrorResponse] = decode_error_response
-# decoders[MsgType.File] =
-# decoders[MsgType.FileChunk] =
-# decoders[MsgType.EndOfFileChunks] =
-# decoders[MsgType.EndOfFiles] =
-
-encoders = dict()
-encoders[MsgType.ClientHello] = encode_client_hello
-encoders[MsgType.ServerHello] = encode_server_hello
-encoders[MsgType.TextRequest] = encode_text
-encoders[MsgType.TextResponse] = encode_text
-encoders[MsgType.CDRequest] = encode_text
-# encoders[MsgType.CDResponse] =
-encoders[MsgType.LSRequest] = encode_ls_request
-encoders[MsgType.LSResponse] = encode_ls_response
-# encoders[MsgType.GetRequest] =
-# encoders[MsgType.GetResponse] =
-# encoders[MsgType.PutRequest] =
-# encoders[MsgType.PutResponse] =
-encoders[MsgType.QuitRequest] = encode_quit_request
-encoders[MsgType.QuitResponse] = encode_quit_response
-# encoders[MsgType.ChangeSettingsRequest] =
-# encoders[MsgType.ChangeSettingsResponse] =
-encoders[MsgType.ErrorResponse] = encode_error_response
-# encoders[MsgType.File] =
-# encoders[MsgType.FileChunk] =
-# encoders[MsgType.EndOfFileChunks] =
-# encoders[MsgType.EndOfFiles] =
-

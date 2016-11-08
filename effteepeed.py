@@ -81,7 +81,6 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         # self.handlers[MsgType.PutRequest] = self._handle_put
         self.handlers[MsgType.QuitRequest] = self._handle_quit
         # self.handlers[MsgType.ChangeSettingsRequest] = self._handle_change_setting
-        self.handlers[MsgType.TextRequest] = self.handle_text
         return
 
     def handle(self):
@@ -103,7 +102,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         while not self.quit:
             rid, msg = recvmsg(self.request)
             if rid not in self.handlers:
-                print("Unknown handler: {}".format(rid))
+                print("No handler for message type: {}".format(rid))
                 self._close()
             handler = self.handlers[rid]
             if not self.username and rid != MsgType.ClientHello:
@@ -112,8 +111,13 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
                 print("Client did not try to authenticate")
                 self._close()
                 continue
+            print("Got a {} message: {}".format(str(MsgType(rid)),msg))
             handler(msg)
         return
+    
+    def sendmsg(self, msg):
+        print("Sent a {} message: {}".format(str(msg.id()), str(msg)))
+        sendmsg(self.request, msg)
     
     def _close(self):
         """
@@ -126,16 +130,14 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         return
 
     def _handshake(self, msg):
-        # check to make sure we got a ClientHello
-        print("Called handshake")
         # check authentication
-        username = msg["username"]
-        password = msg["password"]
+        username = msg.username
+        password = msg.password
         ok, directory = self.server.auth_user(username, password)
         if not ok:
             print("{} failed to authenticate.".format(username))
-            msg = create_error_response_msg(ErrorCodes.FailedAuthentication)
-            sendmsg(self.request, msg["id"], msg)
+            msg = ErrorResponse(ErrorCodes.FailedAuthentication)
+            self.sendmsg(msg)
             self._close()
             return
         print("{} authenticated.".format(username))
@@ -143,30 +145,23 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self.root_directory = directory
         self.cwd = directory
         # send back ServerHello
-        msg = create_server_hello_msg(self.binary, self.compression, self.encryption)
-        sendmsg(self.request, msg["id"], msg)
+        msg = ServerHello(self.binary, self.compression, self.encryption)
+        self.sendmsg(msg)
         return
 
-    def handle_text(self, msg):
-        print(msg["text"])
-
     def _handle_quit(self, msg):
-        msg = create_quit_response_msg()
-        sendmsg(self.request, msg["id"], msg)
+        msg = QuitResponse()
+        self.sendmsg(msg)
         self._close()
         print("{} has quit.".format(self.username))
         return 
 
     def _handle_ls(self, msg):
-        print("Got ls command: ", msg)
-        path = msg["path"]
+        path = msg.path
         if path == ".":
             path = self.cwd
         else:
-            print("extended path")
             path = join(self.root_directory, path)
-            print(self.root_directory)
-            print(path)
         print("Path to ls: ", path)
         folders = list()
         files = list()
@@ -176,7 +171,6 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
             for i in range(len(files)): # remove the path from the beginning
                 filename = files[i]
                 parts = filename.split(os.path.sep)
-                print(parts)
                 files[i] = parts[-1]
         else:
             # Regular os.listdir()
@@ -187,8 +181,8 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
                 else:
                     folders.append(l)
 
-        msg = create_ls_response_msg(folders, files)
-        sendmsg(self.request, msg["id"], msg)
+        msg = LSResponse(folders, files)
+        self.sendmsg(msg)
 
 def main():
     #if len(sys.argv) < 3:

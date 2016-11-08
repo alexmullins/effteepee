@@ -60,8 +60,8 @@ class EffTeePeeClient():
         Will try and authenticate with the server. Return True if successful 
         or False otherwise and the server will close the connection.
         """
-        msg = create_client_hello_msg(username,password)
-        sendmsg(self.socket, msg["id"], msg)
+        msg = ClientHello(username,password)
+        sendmsg(self.socket, msg)
         (rid, msg) = recvmsg(self.socket)
         if rid == MsgType.ErrorResponse:
             self.error = msg["code"]
@@ -69,9 +69,9 @@ class EffTeePeeClient():
             return False
         if rid == MsgType.ServerHello:
             self.username = username 
-            self.binary = msg["binary"]
-            self.compression = msg["compression"]
-            self.encryption = msg["encryption"]
+            self.binary = msg.binary
+            self.compression = msg.compression
+            self.encryption = msg.encryption
             return True
         return False
     
@@ -81,20 +81,14 @@ class EffTeePeeClient():
         went ok.
         """
         print(directory, "cd")
-        self.text(directory, 3)
-        pass 
     
     def ls(self, path):
         """
-        Return a list the files and folders in the current directory.
-        The structure returned will look like:
-        {
-            "folders": [...],
-            "files": [...]
-        }
+        Retuns a listing of the files and folders in the 
+        path on the remote server. Returns a LSResponse object.
         """
-        msg = create_ls_request_msg(path)
-        sendmsg(self.socket, msg["id"], msg)
+        msg = LSRequest(path)
+        sendmsg(self.socket, msg)
         (rid, msg) = recvmsg(self.socket)
         if rid == MsgType.ErrorResponse:
             print("TODO: Got an error")
@@ -110,8 +104,6 @@ class EffTeePeeClient():
         the local host machine. 
         """
         print(file_name, "get")
-        self.text(file_name, ' ')
-        pass 
     
     def put(self, file_name):
         """
@@ -119,31 +111,25 @@ class EffTeePeeClient():
         current working directory. 
         """
         print(file_name, "put")
-        self.text(file_name, ' ')
-        pass 
     
     def mget(self, file_names):
         """
         Same as put but for multiple files.
         """
         print(file_names, "mget")
-        self.text(file_names, ' ')
-        pass 
     
     def mput(self, file_names):
         """
         Same as get but for multiple files.
         """
         print(file_names, "mput")
-        self.text(file_names, ' ')
-        pass 
     
     def quit(self):
         """
         Sends a quit request to the server for proper cleanup. 
         """
-        msg = create_quit_request_msg()
-        sendmsg(self.socket, msg["id"], msg)
+        msg = QuitRequest()
+        sendmsg(self.socket, msg)
         (rid, msg) = recvmsg(self.socket)
         if rid != MsgType.QuitResponse:
             print("Did not receive quit response from server")
@@ -154,32 +140,24 @@ class EffTeePeeClient():
         Toggle binary mode on the connection. Doesn't do anything at the moment.
         """
         print("binary")
-        pass 
     
     def toggle_compression(self):
         """
         Toggle compression on the connection.
         """
         print("compression")
-        pass 
     
     def toggle_encryption(self):
         """
         Toggle encryption on the connection.
         """
         print("encryption")
-        pass 
     
     def normal(self):
         """
         Resets the compression and encryption to Off.
         """
         print("normal")
-        pass
-
-    def text(self, msg, comtyp):
-        txt = create_text_message(msg, comtyp)
-        sendmsg(self.socket, txt["id"], txt)
         
 def main():
     #if len(sys.argv) < 3:
@@ -228,10 +206,10 @@ def main():
                 if msg is None:
                     print("Could not ls with path: ", args)
                 print("Folders:")
-                for f in msg["folders"]:
+                for f in msg.folders:
                     print("\t", f)
                 print("Files:")
-                for f in msg["files"]:
+                for f in msg.files:
                     print("\t", f)
             else:
                 print("Unknown command. Type 'help' to get a list of commands.")
