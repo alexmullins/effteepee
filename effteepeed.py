@@ -203,7 +203,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self.sendmsg(ChangeSettingsResponse())
     
     def _handle_cd(self, msg):
-        new_cwd = os.path.abspath(join(self.cwd, msg.path))
+        new_cwd = os.path.abspath(msg.path)
         print("Potential cwd: {}".format(new_cwd))
         if not self._valid_path(new_cwd):
             self.sendmsg(ErrorResponse(ErrorCodes.BadCDPath))
@@ -213,7 +213,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
     
     def _valid_path(self, new_cwd):
         resolved = new_cwd + os.path.sep
-        if os.path.isdir(resolved) and resolved.startswith(self.root_directory):
+        if os.path.isdir(resolved):# and resolved.startswith(self.root_directory):
             return True
         return False 
 
