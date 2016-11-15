@@ -190,9 +190,14 @@ class EffTeePeeClient():
         """
         if self.encryption:
             ok1 = self.toggle_encryption()
+        else: ok1 = False
         if self.compression:
             ok2 = self.toggle_compression()
-        return ok1 and ok2
+        else: ok2 = False
+        if not self.binary:
+            ok3 = self.toggle_binary()
+        else: ok3 = False
+        return (ok1 or ok2 or ok3)
         
 def main():
     #if len(sys.argv) < 3:
