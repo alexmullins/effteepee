@@ -194,10 +194,7 @@ class EffTeePeeClient():
         if self.compression:
             ok2 = self.toggle_compression()
         else: ok2 = False
-        if not self.binary:
-            ok3 = self.toggle_binary()
-        else: ok3 = False
-        return (ok1 or ok2 or ok3)
+        return (ok1 or ok2)
         
 def main():
     #if len(sys.argv) < 3:
@@ -219,9 +216,9 @@ def main():
     if len(username) == 0 or len(password) == 0:
         print("Invalid username or password.")
         return 1
-   # if re.match("^([a-z][A-Z][0-9][@][a-z][A-Z][0-9][.][a-z][A-Z][0-9])$", password) == None:
-        #print("Invalid password.")
-        #return 1
+    if not re.match("[^@]+@[^@]+\.[^@]+", password):
+        print("Invalid password.")
+        return 1
     try:
         authed = client.handshake(username, password)
         if not authed:
