@@ -1,9 +1,11 @@
 import pathlib
 import enum
 import abc
+import lzma
 
 DEFAULT_USER_FILE = str(pathlib.Path('.', 'data', 'userfile.txt'))
 DEFAULT_FILE_CHUNK_SIZE = 8192
+ENCRYPTION_KEY = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" # or a random string
 
 DEBUG = True
 
@@ -503,7 +505,11 @@ def encode_file_data(data, compression, encryption, key):
     Will return the resulting data. If neither is True 
     then encode is a NOP.
     """
-    pass
+    if encryption:
+        data = encrypt(key, data)
+    if compression:
+        data = compress(data)
+    return data
 
 def decode_file_data(data, compression, encryption, key):
     """
@@ -513,4 +519,40 @@ def decode_file_data(data, compression, encryption, key):
     is True. Will return the resulting data. If neither
     is True then decode is a NOP.
     """
-    pass
+    if compression:
+        data = decompress(data)
+    if encryption:
+        data = decrypt(key, data)
+    return data
+
+# Credit to https://gist.github.com/ilogik/6f9431e4588015ecb194 
+# for the vigenere cipher. Both functions take the plaintext
+# and ciphertext as bytearrays instead of strings. The key is a 
+# string of characters.
+def encrypt(key, plaintext):
+    b = []
+    for i in range(len(plaintext)):
+        k = key[i % len(key)]
+        c = (plaintext[i] + ord(k) % 256)
+        b.append(c)
+    return bytes(b)
+
+def decrypt(key, ciphertext):
+    b = []
+    for i in range(len(ciphertext)):
+        k = key[i % len(key)]
+        p = abs(ciphertext[i] - ord(k) % 256)
+        b.append(p)
+    return bytes(b)
+
+# Compress with LZMA with a 
+# CRC32 checksum to ensure file data 
+# is not corrupted during transfer.
+def compress(data):
+    return lzma.compress(data, format=lzma.FORMAT_XZ, check=lzma.CHECK_CRC32)
+
+# Decompress with LZMA with a 
+# CRC32 checksum to ensure file data 
+# is not corrupted during transfer.
+def decompress(data):
+    return lzma.decompress(data, format=lzma.FORMAT_XZ)

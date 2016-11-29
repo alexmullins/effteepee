@@ -216,9 +216,9 @@ def main():
     if len(username) == 0 or len(password) == 0:
         print("Invalid username or password.")
         return 1
-    if not re.match("[^@]+@[^@]+\.[^@]+", password):
-        print("Invalid password.")
-        return 1
+    # if not re.match("[^@]+@[^@]+\.[^@]+", password):
+    #     print("Invalid password.")
+    #     return 1
     try:
         authed = client.handshake(username, password)
         if not authed:

@@ -97,9 +97,9 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         return
     
     def _handle_commands(self):
-    # enter into a for loop and try
-    # to read the request id and send it the
-    # appropriate handler.
+        # enter into a for loop and try
+        # to read the request id and send it the
+        # appropriate handler.
         while not self.quit:
             rid, msg = recvmsg(self.request)
             if rid not in self.handlers:
