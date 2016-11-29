@@ -203,6 +203,10 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self.sendmsg(ChangeSettingsResponse())
     
     def _handle_cd(self, msg):
+        if msg.path == '..':
+            self.cwd = (self.cwd.rsplit(os.path.sep, 1))[0]
+            self.sendmsg(CDResponse())
+            return
         new_cwd = os.path.abspath(msg.path)
         if not os.path.isdir(new_cwd):
             new_cwd = os.path.abspath(self.cwd+msg.path)
