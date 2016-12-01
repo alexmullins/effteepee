@@ -575,7 +575,7 @@ def encrypt(key, plaintext):
     b = []
     for i in range(len(plaintext)):
         k = key[i % len(key)]
-        c = (plaintext[i] + ord(k) % 256)
+        c = ((plaintext[i] + ord(k)) % 256)
         b.append(c)
     return bytes(b)
 
@@ -583,7 +583,7 @@ def decrypt(key, ciphertext):
     b = []
     for i in range(len(ciphertext)):
         k = key[i % len(key)]
-        p = abs(ciphertext[i] - ord(k) % 256)
+        p = abs((ciphertext[i] - ord(k)) % 256)
         b.append(p)
     return bytes(b)
 
