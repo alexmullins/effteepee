@@ -110,6 +110,7 @@ class EffTeePeeClient():
         Get a file from a directory on the server and save it to
         the local host machine. 
         """
+        print("Getting {} from the server.".format(filenames))
         msg = GetRequest(filenames)
         sendmsg(self.socket, msg)
         (rid, msg) = recvmsg(self.socket)
@@ -121,7 +122,6 @@ class EffTeePeeClient():
             self._close()
             return False
         # Read file from server 
-        print("Got GetResponse")
         num_files = msg.num_files
         cwd = os.getcwd()
         return get_files(self.socket, cwd, num_files, self.compression, self.encryption)
@@ -131,6 +131,7 @@ class EffTeePeeClient():
         Put a file from the local host machine on the server in its 
         current working directory. 
         """
+        print("Putting {} to the server.".format(filenames))
         cwd = os.getcwd()
         # check all files exist 
         for f in filenames:
@@ -310,11 +311,15 @@ def main():
                 ok = client.get(filename)
                 if not ok:
                     print("Could not get {} from the server.".format(filename))
+                elif ok:
+                    print("Finished getting {} from the server.".format(filename))
             elif command == "mget":
                 filenames = args.split(" ")
                 ok = client.get(filenames)
                 if not ok:
                     print("Could not get {} from the server.".format(filenames))
+                elif ok:
+                    print("Finished getting {} from the server.".format(filenames))
             elif command == "put":
                 filename = args.split(" ")
                 if len(filename) > 1:
@@ -323,11 +328,15 @@ def main():
                 ok = client.put(filename)
                 if not ok:
                     print("Could not get {} from the server.".format(filename))
+                elif ok:
+                    print("Finished putting {} to the server.".format(filename))
             elif command == "mput":
                 filenames = args.split(" ")
                 ok = client.put(filenames)
                 if not ok:
                     print("Could not get {} from the server.".format(filenames))
+                elif ok:
+                    print("Finished putting {} to the server.".format(filenames))
             else:
                 print("Unknown command. Type 'help' to get a list of commands.")
     except ConnectionClosedException:
