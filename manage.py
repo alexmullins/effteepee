@@ -1,6 +1,7 @@
 import sys 
 import pathlib
 import hashlib
+import re
 
 from common import *
 
@@ -17,6 +18,9 @@ def main():
 def adduser(user_file):
     username = input("Username:")
     password = input("Password:")
+    if not re.match("[^@]+@[^@]+\.[^@]+", password):
+        print("Invalid password. Must match email address.")
+        return 1
     pass_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
     directory = input("Root directory (needs to be absolute):")
     line = "::".join((username, pass_hash, directory))
