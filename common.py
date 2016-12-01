@@ -2,6 +2,7 @@ import pathlib
 import enum
 import abc
 import lzma
+from os.path import join
 
 DEFAULT_USER_FILE = str(pathlib.Path('.', 'data', 'userfile.txt'))
 DEFAULT_FILE_CHUNK_SIZE = 8192
@@ -28,6 +29,8 @@ class ErrorCodes(enum.IntEnum):
 
     UnknownSetting = 20
     BadCDPath = 21
+    NotExists = 23
+    PutFilesFailed = 23
 
 def is_fatal_error(code):
     if code < 20:
@@ -274,40 +277,63 @@ class GetRequest(Message):
     """
     GetRequest Message.
     """
+    def __init__(self, filenames=None):
+        self.filenames = filenames 
+
     def id(self):
         return MsgType.GetRequest
 
     def encode(self):
-        pass 
+        file_str = ";".join(self.filenames)
+        file_str_len = len(file_str)
+        frame = bytearray()
+        frame.extend(file_str_len.to_bytes(2, byteorder="big"))
+        frame.extend(file_str.encode("utf-8"))
+        return bytes(frame) 
     
     def decode(self, data):
-        pass 
+        file_str_len = int.from_bytes(data[0:2], byteorder="big")
+        file_str = data[2:2+file_str_len]
+        self.filenames = file_str.decode('utf-8').split(";")
+        return 
 
 class GetResponse(Message):
     """
     GetResponse Message.
     """
+    def __init__(self, num_files=0):
+        self.num_files = num_files
+
     def id(self):
         return MsgType.GetResponse
 
     def encode(self):
-        pass 
-    
+        frame = bytearray()
+        frame.extend(self.num_files.to_bytes(2, byteorder="big"))
+        return bytes(frame)  
+
     def decode(self, data):
-        pass
+        self.num_files = int.from_bytes(data[0:2], byteorder="big")
+        return
 
 class PutRequest(Message):
     """
     PutRequest Message.
     """
+    def __init__(self, num_files=0):
+        self.num_files = num_files
+
     def id(self):
         return MsgType.PutRequest
 
     def encode(self):
-        pass 
+        frame = bytearray()
+        frame.extend(self.num_files.to_bytes(2, byteorder="big"))
+        return bytes(frame)   
     
     def decode(self, data):
-        pass 
+        self.num_files = int.from_bytes(data[0:2], byteorder="big")
+        return 
 
 class PutResponse(Message):
     """
@@ -317,7 +343,7 @@ class PutResponse(Message):
         return MsgType.PutResponse
 
     def encode(self):
-        pass 
+        return bytes() 
     
     def decode(self, data):
         pass
@@ -365,27 +391,42 @@ class File(Message):
     """
     File Message.
     """
+    def __init__(self, filename=None):
+        self.filename = filename
+
     def id(self):
         return MsgType.File
 
     def encode(self):
-        pass 
+        filename_len = len(self.filename)
+
+        frame = bytearray()
+        frame.extend(filename_len.to_bytes(1, byteorder="big"))
+        frame.extend(self.filename.encode("utf-8"))
+        return bytes(frame)
     
     def decode(self, data):
-        pass
+        filename_len = int.from_bytes(data[0:1], byteorder="big")
+        self.filename = data[1:1+filename_len].decode("utf-8")
+        return
 
 class FileChunk(Message):
     """
     FileChunk Message.
     """
+    def __init__(self, data=None):
+        self.data = data
+
     def id(self):
         return MsgType.FileChunk
 
     def encode(self):
-        pass 
+        frame = bytearray()
+        frame.extend(self.data)
+        return bytes(frame)
     
     def decode(self, data):
-        pass
+        self.data = data
 
 class EndOfFileChunks(Message):
     """
@@ -395,7 +436,7 @@ class EndOfFileChunks(Message):
         return MsgType.EndOfFileChunks
 
     def encode(self):
-        pass 
+        return bytes() 
     
     def decode(self, data):
         pass
@@ -408,10 +449,11 @@ class EndOfFiles(Message):
         return MsgType.EndOfFiles
 
     def encode(self):
-        pass 
+        return bytes() 
     
     def decode(self, data):
         pass
+
 
 messages = dict()
 messages[MsgType.ClientHello] = ClientHello
@@ -556,3 +598,67 @@ def compress(data):
 # is not corrupted during transfer.
 def decompress(data):
     return lzma.decompress(data, format=lzma.FORMAT_XZ)
+
+
+def get_files(socket, cwd, num_files, compression, encryption):
+    # Will read File messages from the socket. 
+    # Reads num_files in the following order:
+    # File -> FileChunk -> EndOfFileChunks 
+    # Will lastly read an EndOfFiles msg to 
+    # signal that there are no more files.
+    for i in range(num_files):
+        (rid, msg) = recvmsg(socket)
+        if rid != MsgType.File:
+            return False 
+        filename = join(cwd, msg.filename)
+        f = open(filename, 'wb')
+        while True:
+            (rid, msg) = recvmsg(socket)
+            if rid == MsgType.ErrorResponse:
+                # we got an error from the the other 
+                # side.
+                f.close()
+                return False
+            if rid == MsgType.EndOfFileChunks:
+                # we've read all the file chunks
+                f.close()
+                break 
+            if rid != MsgType.FileChunk:
+                print("Expected a FileChunk, got {}".format(msg))
+                f.close()
+                return False
+            # write chunk data to file
+            data = msg.data
+            f.write(data)
+    (rid, msg) = recvmsg(socket)
+    if rid != MsgType.EndOfFiles:
+        return False 
+    return True
+
+def put_files(socket, cwd, filenames, compression, encryption):
+    # Will put File messages on the socket.
+    # Writes file data for each file in filenames:
+    # File -> FileChunk -> EndOfFileChunks
+    # Ending with an EndOfFiles message to finish
+    # up.
+    for filename in filenames:
+        msg = File(filename)
+        sendmsg(socket, msg)
+        f = open(join(cwd, filename), "rb")
+        while True:
+            data = f.read(DEFAULT_FILE_CHUNK_SIZE)
+            if not data:
+                # Reached end of file.
+                # Write end of file chunk.
+                # And move on to next file.
+                msg = EndOfFileChunks()
+                sendmsg(socket, msg)
+                break
+            # write data chunks
+            msg = FileChunk(data)
+            sendmsg(socket, msg)
+        f.close()
+    msg = EndOfFiles()
+    sendmsg(socket, msg)
+    return True
+

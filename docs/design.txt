@@ -70,17 +70,13 @@ LSResponse:
 GetRequest:
 <1 byte> - <ID>
 <2 byte> - <MsgLen>
-<1 byte> - <number of filenames>    # if 0x00 then means glob string for filename
-<1 byte> - <1st filename len>
-<variable - <1st filename>
-... repeat ...
-<1 byte> - <nth filename len>
-<variable> <nth filename>
+<2 byte> - <file string len>
+<variable - <file string>   # file string concat with ';'
 
 GetResponse:
 <1 byte> - <ID>
 <2 byte> - <MsgLen>
-<4 byte> - <number of files>
+<2 byte> - <number of files>
 <object> - <File 1>
 ... repeat ... 
 <object> - <File n>
@@ -112,11 +108,11 @@ EndOfFileChunks:
 PutRequest:
 <1 byte> - <ID>
 <2 byte> - <MsgLen>
-<4 byte> - <number of files>
-<variable> - <File 1>
+<2 byte> - <number of files>
+<object> - <File 1>
 ... repeat ...
-<variable> - <File n>
-<1 byte> - <EndOfFiles>
+<object> - <File n>
+<object> - <EndOfFiles>
 
 PutResponse:
 <1 byte> - <ID>

@@ -4,6 +4,8 @@ import socket
 import sys
 import getpass
 import re
+import os
+from os.path import isfile, join
 
 from common import *
 
@@ -103,32 +105,48 @@ class EffTeePeeClient():
         print("Got an unknown response")
         return None 
     
-    def get(self, file_name):
+    def get(self, filenames):
         """
         Get a file from a directory on the server and save it to
         the local host machine. 
         """
-        print(file_name, "get")
-    
-    def put(self, file_name):
+        msg = GetRequest(filenames)
+        sendmsg(self.socket, msg)
+        (rid, msg) = recvmsg(self.socket)
+        if rid == MsgType.ErrorResponse:
+            return False
+        if rid != MsgType.GetResponse:
+            # protocol error, close conn.
+            print("Expected a GetResponse, got: {}".format(msg))
+            self._close()
+            return False
+        # Read file from server 
+        print("Got GetResponse")
+        num_files = msg.num_files
+        cwd = os.getcwd()
+        return get_files(self.socket, cwd, num_files, self.compression, self.encryption)
+
+    def put(self, filenames):
         """
         Put a file from the local host machine on the server in its 
         current working directory. 
         """
-        print(file_name, "put")
-    
-    def mget(self, file_names):
-        """
-        Same as put but for multiple files.
-        """
-        print(file_names, "mget")
-    
-    def mput(self, file_names):
-        """
-        Same as get but for multiple files.
-        """
-        print(file_names, "mput")
-    
+        cwd = os.getcwd()
+        # check all files exist 
+        for f in filenames:
+            if not isfile(join(cwd, f)):
+                print("{} does not exist".format(join(cwd, f)))
+                return False
+        msg = PutRequest(len(filenames))
+        sendmsg(self.socket, msg)
+        ok = put_files(self.socket, cwd, filenames, self.compression, self.encryption)
+        if not ok:
+            return False
+        (rid, msg) = recvmsg(self.socket)
+        if rid != MsgType.PutResponse:
+            return False
+        return True
+        
     def quit(self):
         """
         Sends a quit request to the server for proper cleanup. 
@@ -274,6 +292,32 @@ def main():
                 ok = client.cd(args)
                 if not ok:
                     print("Could not change directory.")
+            elif command == "get":
+                filename = args.split(" ")
+                if len(filename) > 1:
+                    print("Can only GET 1 file at a time. Use MGET instead.")
+                    continue
+                ok = client.get(filename)
+                if not ok:
+                    print("Could not get {} from the server.".format(filename))
+            elif command == "mget":
+                filenames = args.split(" ")
+                ok = client.get(filenames)
+                if not ok:
+                    print("Could not get {} from the server.".format(filenames))
+            elif command == "put":
+                filename = args.split(" ")
+                if len(filename) > 1:
+                    print("Can only PUT 1 file at a time. Use MPUT instead.")
+                    continue
+                ok = client.put(filename)
+                if not ok:
+                    print("Could not get {} from the server.".format(filename))
+            elif command == "mput":
+                filenames = args.split(" ")
+                ok = client.put(filenames)
+                if not ok:
+                    print("Could not get {} from the server.".format(filenames))
             else:
                 print("Unknown command. Type 'help' to get a list of commands.")
     except ConnectionClosedException:

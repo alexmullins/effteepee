@@ -1,5 +1,4 @@
 # username::sha256 password hash::root folder 
 spencer::fbac7735d494951bc5ebf8e13ffa94d8a9f0bd0565f8e9b2df6880a8fd80b0d7::C:/Users/
 Spencer::381829705ac52b4caf1393f53446f48cfc8e3310753d652400dab0c649d8ec87::C:/Users/
-alex::42ba9d141a64344ed5529cd1c28e6dd0ec9e885508422e83f0b90491257c2f58::/tmp/alex/
-alex2::45d01b2ad0606535344a61e8c3e778cbfe8ad6ebb32ddedda8beb1c807976c7d::C:/Users/
+alex::4135aa9dc1b842a653dea846903ddb95bfb8c5a10c504a7fa16e10bc31d1fdf0::/tmp/alex

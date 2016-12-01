@@ -77,8 +77,8 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self.handlers[MsgType.ClientHello] = self._handshake
         self.handlers[MsgType.CDRequest] = self._handle_cd
         self.handlers[MsgType.LSRequest] = self._handle_ls
-        # self.handlers[MsgType.GetRequest] = self._handle_get
-        # self.handlers[MsgType.PutRequest] = self._handle_put
+        self.handlers[MsgType.GetRequest] = self._handle_get
+        self.handlers[MsgType.PutRequest] = self._handle_put
         self.handlers[MsgType.QuitRequest] = self._handle_quit
         self.handlers[MsgType.ChangeSettingsRequest] = self._handle_change_setting
         return
@@ -214,6 +214,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         if not self._valid_path(new_cwd):
             self.sendmsg(ErrorResponse(ErrorCodes.BadCDPath))
             return
+        print(self.cwd)
         self.sendmsg(CDResponse())
     
     def _valid_path(self, new_cwd):
@@ -232,6 +233,28 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
             return True
         print(self.cwd)
         return False 
+    
+    def _handle_get(self, msg):
+        filenames = msg.filenames
+        # check if all the files exists
+        for f in filenames:
+            fp = join(self.cwd, f)
+            if not isfile(fp):
+                msg = ErrorResponse(ErrorCodes.NotExists)
+                self.sendmsg(msg)
+                return
+        # return files to client
+        resmsg = GetResponse(len(filenames))
+        self.sendmsg(resmsg)
+        return put_files(self.request, self.cwd, filenames, self.compression, self.encryption)
+
+    def _handle_put(self, msg):
+        num_files = msg.num_files
+        cwd = self.cwd
+        ok = get_files(self.request, cwd, num_files, self.compression, self.encryption)
+        if not ok:
+            self.sendmsg(ErrorResponse(ErrorCodes.PutFilesFailed))
+        self.sendmsg(PutResponse())
 
 def main():
     #if len(sys.argv) < 3:
