@@ -547,10 +547,8 @@ def encode_file_data(data, compression, encryption, key):
     Will return the resulting data. If neither is True 
     then encode is a NOP.
     """
-
     if encryption:
-        data = data
-        #data = encrypt(key, data)
+        data = encrypt(key, data)
     if compression:
         data = compress(data)
     return data
@@ -566,8 +564,7 @@ def decode_file_data(data, compression, encryption, key):
     if compression:
         data = decompress(data)
     if encryption:
-        data = data
-        #data = decrypt(key, data)
+        data = decrypt(key, data)
     return data
 
 # Credit to https://gist.github.com/ilogik/6f9431e4588015ecb194 
