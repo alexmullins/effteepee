@@ -213,6 +213,16 @@ class EffTeePeeClient():
             ok2 = self.toggle_compression()
         else: ok2 = False
         return (ok1 or ok2)
+    
+    def get_command_string(self):
+        cmd_str = ""
+        if self.binary:
+            cmd_str += "B"
+        if self.encryption:
+            cmd_str += "E"
+        if self.compression:
+            cmd_str += "C"
+        return cmd_str
         
 def main():
     #if len(sys.argv) < 3:
@@ -244,7 +254,7 @@ def main():
             return 0
         print("Welcome {}, type 'help' to get a list of commands.".format(client.username))
         while not client.closed:
-            command_str = input("> ")
+            command_str = input("[{}]> ".format(client.get_command_string()))
             command = None 
             args = None
             com = command_str.split(' ', 1)

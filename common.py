@@ -629,6 +629,7 @@ def get_files(socket, cwd, num_files, compression, encryption):
                 return False
             # write chunk data to file
             data = msg.data
+            data = decode_file_data(data, compression, encryption, ENCRYPTION_KEY)
             f.write(data)
     (rid, msg) = recvmsg(socket)
     if rid != MsgType.EndOfFiles:
@@ -641,7 +642,10 @@ def put_files(socket, cwd, filenames, compression, encryption):
     # File -> FileChunk -> EndOfFileChunks
     # Ending with an EndOfFiles message to finish
     # up.
+    first = True
     for filename in filenames:
+        chunk_num = 0
+        total_size = 0
         msg = File(filename)
         sendmsg(socket, msg)
         f = open(join(cwd, filename), "rb")
@@ -655,8 +659,15 @@ def put_files(socket, cwd, filenames, compression, encryption):
                 sendmsg(socket, msg)
                 break
             # write data chunks
+            data = encode_file_data(data, compression, encryption, ENCRYPTION_KEY)
+            if first:
+                debug_print(data)
+                first = False
+            chunk_num += 1
+            total_size += len(data)
             msg = FileChunk(data)
             sendmsg(socket, msg)
+        debug_print("File: {}, Chunks: {}, Size: {}".format(filename, chunk_num, total_size))
         f.close()
     msg = EndOfFiles()
     sendmsg(socket, msg)
