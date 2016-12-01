@@ -113,12 +113,12 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
                 print("Client did not try to authenticate")
                 self._close()
                 continue
-            print("Got a {} message: {}".format(str(MsgType(rid)),msg))
+            debug_print("Got a {} message: {}".format(str(MsgType(rid)),msg))
             handler(msg)
         return
     
     def sendmsg(self, msg):
-        print("Sent a {} message: {}".format(str(msg.id()), str(msg)))
+        debug_print("Sent a {} message: {}".format(str(msg.id()), str(msg)))
         sendmsg(self.request, msg)
     
     def _close(self):
@@ -164,7 +164,7 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
             path = self.cwd
         else:
             path = join(self.cwd, path)
-        print("Path to ls: ", path)
+        debug_print("Path to ls: {}".format(path))
         folders = list()
         files = list()
         if "*" in path:
@@ -187,8 +187,8 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
         self.sendmsg(msg)
     
     def _handle_change_setting(self, msg):
-        print("Setting: ", msg.setting)
-        print("Value: ", msg.value)
+        debug_print("Setting: {}".format(msg.setting))
+        debug_print("Value: {}".format(msg.value))
         s = msg.setting
         v = msg.value
         if s == "encryption":
@@ -209,29 +209,25 @@ class EffTeePeeHandler(socketserver.BaseRequestHandler):
             return
         new_cwd = os.path.abspath(msg.path)
         if not os.path.isdir(new_cwd):
-            new_cwd = os.path.abspath(self.cwd+msg.path)
-        print("Potential cwd: {}".format(new_cwd))
+            new_cwd = os.path.abspath(join(self.cwd,msg.path))
+        debug_print("Potential cwd: {}".format(new_cwd))
         if not self._valid_path(new_cwd):
             self.sendmsg(ErrorResponse(ErrorCodes.BadCDPath))
             return
-        print(self.cwd)
+        debug_print(self.cwd)
         self.sendmsg(CDResponse())
     
     def _valid_path(self, new_cwd):
         resolved = new_cwd + os.path.sep
         if os.path.isdir(resolved):# and resolved.startswith(self.root_directory):
             self.cwd = new_cwd
-            print(self.cwd)
             return True
         elif os.path.isdir(self.cwd+new_cwd):
             self.cwd = self.cwd+new_cwd
-            print(self.cwd)
             return True
         elif os.path.isdir(self.cwd+resolved):
             self.cwd = self.cwd+new_cwd
-            print(self.cwd)
             return True
-        print(self.cwd)
         return False 
     
     def _handle_get(self, msg):
@@ -262,6 +258,7 @@ def main():
         #return 1
     #ip, port = sys.argv[1], int(sys.argv[2])
     ip, port = '0.0.0.0', 12345
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
     server = EffTeePeeServer((ip, port), EffTeePeeHandler)
     print("Starting EffTeePee server on {}:{}".format(ip, port))
     try:

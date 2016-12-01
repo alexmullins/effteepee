@@ -661,7 +661,7 @@ def put_files(socket, cwd, filenames, compression, encryption):
             # write data chunks
             data = encode_file_data(data, compression, encryption, ENCRYPTION_KEY)
             if first:
-                debug_print(data)
+                debug_print(data[:100])
                 first = False
             chunk_num += 1
             total_size += len(data)

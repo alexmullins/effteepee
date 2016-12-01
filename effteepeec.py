@@ -21,7 +21,6 @@ class EffTeePeeClient():
         self.compression = False 
         self.encryption = False 
         self.socket = None
-        self.encrypt_key = None
         self.error = None
         self.closed = False
         return
@@ -121,7 +120,6 @@ class EffTeePeeClient():
             self._close()
             return False
         # Read file from server 
-        print("Got GetResponse")
         num_files = msg.num_files
         cwd = os.getcwd()
         return get_files(self.socket, cwd, num_files, self.compression, self.encryption)
@@ -310,11 +308,13 @@ def main():
                 ok = client.get(filename)
                 if not ok:
                     print("Could not get {} from the server.".format(filename))
+                print("GET Success: {}".format(filename))
             elif command == "mget":
                 filenames = args.split(" ")
                 ok = client.get(filenames)
                 if not ok:
                     print("Could not get {} from the server.".format(filenames))
+                print("MGET Success: {}".format(filenames))
             elif command == "put":
                 filename = args.split(" ")
                 if len(filename) > 1:
@@ -323,11 +323,13 @@ def main():
                 ok = client.put(filename)
                 if not ok:
                     print("Could not get {} from the server.".format(filename))
+                print("PUT Success: {}".format(filename))
             elif command == "mput":
                 filenames = args.split(" ")
                 ok = client.put(filenames)
                 if not ok:
                     print("Could not get {} from the server.".format(filenames))
+                print("MPUT Success: {}".format(filenames))
             else:
                 print("Unknown command. Type 'help' to get a list of commands.")
     except ConnectionClosedException:
